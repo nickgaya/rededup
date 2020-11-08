@@ -1,3 +1,16 @@
+/**
+ * Fetch data from an image URL, create an Image from the data, and return the
+ * image once it has loaded. In order to fetch the image data the extension
+ * must have cross-domain access for the source domain.
+ *
+ * The resulting image has the same origin as the extension, allowing us to
+ * draw it to a canvas and extract its pixel data without violating the
+ * browser's same-origin security policy.
+ *
+ * @see {@link https://stackoverflow.com/questions/49013975/}
+ * @param {String} srcUrl An image url
+ * @returns {Promise<Image>} An image with data from the source URL.
+ */
 async function fetchImage(srcUrl) {
     const resp = await fetch(srcUrl);
     const blob = await resp.blob();
@@ -5,6 +18,14 @@ async function fetchImage(srcUrl) {
     return await loadImage(blobUrl);
 }
 
+/**
+ * Create an Image with the given url.
+ *
+ * @param {String} url An image url
+ * @returns {Promise<Image>} A promise object that will be fulfilled with the
+ *     image when loading is complete. If the image fails to load, the promise
+ *     will be rejected.
+ */
 function loadImage(url) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -73,6 +94,15 @@ function* mooreCurve(p) {
     }
 }
 
+/**
+ * Compute a 64-bit perceptual hash of an image using the "dHash" algorithm.
+ * The basic idea is to scale the image to a small fixed size and compare
+ * grayscale values between pixels to produce the bits of the hash.
+ *
+ * @see {@link https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html}
+ * @param {Image} img An image in a complete, non-broken state
+ * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
+ */
 function getImageHash(img) {
     if (!img.complete) {
         throw "Image not complete";
@@ -81,10 +111,6 @@ function getImageHash(img) {
         throw "Image broken";
     }
 
-    // An implementation of the "dHash" perceptual hash algorithm. The basic
-    // idea is to scale the image to a small fixed size and compare grayscale
-    // values between pixels to produce the bits of the hash.
-    // See https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 8;
     const ctx = canvas.getContext('2d');
@@ -123,22 +149,49 @@ function getImageHash(img) {
     return hash.buffer;
 }
 
+/**
+ * Convert an ArrayBuffer to a human-readable hex string for logging or similar
+ * purposes.
+ *
+ * @param {ArrayBuffer} buffer An array of binary data
+ * @return {String} A string representing the data in hexadecimal notation.
+ */
 function bufToHex(buffer) {
     return Array.prototype.map.call(
         new Uint8Array(buffer),
         (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Convert an ArrayBuffer to a string. Note that the resulting string may not
+ * be valid UTF-16 data, so it should not be used for human-readable purposes.
+ * The result depends on the platform's endianness.
+ *
+ * @param {ArrayBuffer} buffer An array of binary data
+ * @return {String} A string whose code units correspond to the data
+ *     interpreted as a Uint16Array.
+ */
 function bufToString(buffer) {
-    // Note: May not be valid UTF-16 data, but that's ok as Javascript strings
-    // must support any unsigned 16-bit value
     return String.fromCharCode(...new Uint16Array(buffer));
 }
 
+/**
+ * Information about a link in the site table.
+ * @typedef {Object} LinkInfo
+ * @property {Element} thing - Top-level element for the link
+ * @property {String} hash - Image hash of the link thumbnail
+ */
+
+/**
+ * Compute link info for a link thumbnail.
+ *
+ * @param img An image element for a link thumbnail
+ * @return {Promise<?LinkInfo>} Link information, or null if an exception
+ *     occurred while fetching the image.
+ */
 async function processThumbnail(img) {
     try {
-        // Need to use privileged fetch api due to same-origin policy
-        // See https://stackoverflow.com/questions/49013975/
+        // Need to re-fetch the image due to same-origin policy
         const soImg = await fetchImage(img.src);
         return {
             thing: img.parentElement.parentElement,
@@ -150,6 +203,24 @@ async function processThumbnail(img) {
     }
 }
 
+/**
+ * Information about a link with duplicates.
+ *
+ * @typedef {Object} DupRecord
+ * @property {Element} thing - Primary link
+ * @property {Element[]} duplicates - Duplicate links
+ * @property {Boolean} showDuplicates - Whether to show or hide duplicate links
+ * @property {Element} taglineElt - Element containing duplicate info in the
+ *     primary link's tagline.
+ * @property {Element} countElt - Element for displaying the duplicate count
+ * @property {Element} linkElt - Element for toggling duplicate visibility
+ */
+
+/**
+ * Add elements to a post's tagline and updates the duplicate record.
+ *
+ * @param {DupRecord} dupRecord Information about the link
+ */
 function initTagline(dupRecord) {
     dupRecord.taglineElt = document.createElement('span');
     dupRecord.countElt = document.createElement('span');
@@ -172,22 +243,47 @@ function initTagline(dupRecord) {
     tagline.appendChild(dupRecord.taglineElt);
 }
 
+/**
+ * Get the last item of an array or return a default value.
+ *
+ * @param {Array} items An array of values, may be empty
+ * @param defaultValue Default value
+ * @return The last item in the array, or the default value.
+ */
 function lastItem(items, defaultValue) {
     return (items.length > 0) ? items[items.length - 1] : defaultValue;
 }
 
+/**
+ * Add a duplicate to the given duplicate record and update the DOM as needed.
+ *
+ * @param {DupRecord} dupRecord A duplicate record
+ * @param {Element} thing A link element to add as a duplicate
+ */
 function addDuplicate(dupRecord, thing) {
     if (!dupRecord.taglineElt) {
         initTagline(dupRecord);
     }
+    // Update display CSS property
     thing.style.display = dupRecord.showDuplicates ? '' : 'none';
+    // Reorder duplicate to come after primary
     lastItem(dupRecord.duplicates, dupRecord.thing).after(thing);
+    // Add duplicate to record
     dupRecord.duplicates.push(thing);
+    // Update primary link tagline
     const s = dupRecord.duplicates.length > 1 ? 's' : '';
     dupRecord.countElt.textContent =
         `${dupRecord.duplicates.length} duplicate${s}`;
 }
 
+/**
+ * Process a list of LinkInfo objects, find duplicates, and update the DOM.
+ *
+ * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
+ *     information
+ * @return {Promise<Map>} A map whose keys are thumbnail image hash strings and
+ *     whose values are DupRecord objects.
+ */
 async function findDuplicates(promises) {
     const thumbsMap = new Map();
     for (let promise of promises) {
