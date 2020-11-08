@@ -240,6 +240,18 @@ function initTagline(dupRecord) {
 }
 
 /**
+ * Move a thing in the site table to come after another thing.
+ *
+ * @param {Element} thing The first thing
+ * @param {Element} otherThing The thing to move
+ */
+function moveThingAfter(thing, otherThing) {
+    // Each thing in the site table is followed by an empty
+    // <div class="clearleft"></div> element, we want to preserve that.
+    thing.nextSibling.after(otherThing, otherThing.nextSibling);
+}
+
+/**
  * Get the last item of an array or return a default value.
  *
  * @param {Array} items An array of values, may be empty
@@ -259,8 +271,8 @@ function lastItem(items, defaultValue) {
 function addDuplicate(dupRecord, thing) {
     // Update display CSS property
     thing.style.display = dupRecord.showDuplicates ? '' : 'none';
-    // Reorder duplicate to come after primary
-    lastItem(dupRecord.duplicates, dupRecord.thing).after(thing);
+    // Reorder duplicate to come after preceding duplicate or primary
+    moveThingAfter(lastItem(dupRecord.duplicates, dupRecord.thing), thing);
     // Add duplicate to record
     dupRecord.duplicates.push(thing);
     // Update primary link tagline
