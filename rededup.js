@@ -13,9 +13,10 @@
  */
 async function fetchImage(srcUrl) {
     const resp = await fetch(srcUrl);
-    const blob = await resp.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    return await loadImage(blobUrl);
+    const blobUrl = URL.createObjectURL(await resp.blob());
+    const result = await loadImage(blobUrl);
+    URL.revokeObjectURL(blobUrl);
+    return result;
 }
 
 /**
@@ -157,9 +158,8 @@ function getImageHash(img) {
  * @return {String} A string representing the data in hexadecimal notation.
  */
 function bufToHex(buffer) {
-    return Array.prototype.map.call(
-        new Uint8Array(buffer),
-        (b) => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(new Uint8Array(buffer),
+                      (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -210,8 +210,7 @@ async function processThumbnail(img) {
  * @property {Element} thing - Primary link
  * @property {Element[]} duplicates - Duplicate links
  * @property {Boolean} showDuplicates - Whether to show or hide duplicate links
- * @property {Element} taglineElt - Element containing duplicate info in the
- *     primary link's tagline.
+
  * @property {Element} countElt - Element for displaying the duplicate count
  * @property {Element} linkElt - Element for toggling duplicate visibility
  */
@@ -222,7 +221,6 @@ async function processThumbnail(img) {
  * @param {DupRecord} dupRecord Information about the link
  */
 function initTagline(dupRecord) {
-    dupRecord.taglineElt = document.createElement('span');
     dupRecord.countElt = document.createElement('span');
     dupRecord.countElt.textContent = '? duplicate(s)';
     dupRecord.linkElt = document.createElement('a');
@@ -232,15 +230,13 @@ function initTagline(dupRecord) {
         dupRecord.showDuplicates = !dupRecord.showDuplicates;
         dupRecord.linkElt.textContent =
             dupRecord.showDuplicates ? 'hide' : 'show';
-        for (let thing of dupRecord.duplicates) {
+        for (const thing of dupRecord.duplicates) {
             thing.style.display = dupRecord.showDuplicates ? '' : 'none';
         }
         return false;
     });
-    dupRecord.taglineElt.append(
-        ' (', dupRecord.countElt, ' — ', dupRecord.linkElt, ')');
     const tagline = dupRecord.thing.querySelector('.tagline');
-    tagline.appendChild(dupRecord.taglineElt);
+    tagline.append(' (', dupRecord.countElt, ' — ', dupRecord.linkElt, ')');
 }
 
 /**
@@ -261,9 +257,6 @@ function lastItem(items, defaultValue) {
  * @param {Element} thing A link element to add as a duplicate
  */
 function addDuplicate(dupRecord, thing) {
-    if (!dupRecord.taglineElt) {
-        initTagline(dupRecord);
-    }
     // Update display CSS property
     thing.style.display = dupRecord.showDuplicates ? '' : 'none';
     // Reorder duplicate to come after primary
@@ -271,6 +264,9 @@ function addDuplicate(dupRecord, thing) {
     // Add duplicate to record
     dupRecord.duplicates.push(thing);
     // Update primary link tagline
+    if (!dupRecord.countElt) {
+        initTagline(dupRecord);
+    }
     const s = dupRecord.duplicates.length > 1 ? 's' : '';
     dupRecord.countElt.textContent =
         `${dupRecord.duplicates.length} duplicate${s}`;
@@ -286,7 +282,7 @@ function addDuplicate(dupRecord, thing) {
  */
 async function findDuplicates(promises) {
     const thumbsMap = new Map();
-    for (let promise of promises) {
+    for (const promise of promises) {
         const result = await promise;
         if (!result) {
             continue;
@@ -310,7 +306,7 @@ async function findDuplicates(promises) {
 {
     const t0 = performance.now();
     const thumbs = document.body.querySelectorAll(
-        '#siteTable > .thing > .thumbnail > img');
+        '#siteTable > .thing.link > .thumbnail > img');
     console.log("Processing", thumbs.length, "thumbnails");
     // Init all promises, then process results in order
     const promises = Array.from(thumbs, processThumbnail);
@@ -318,7 +314,7 @@ async function findDuplicates(promises) {
         const t1 = performance.now();
         let numWithDups = 0;
         let totalDups = 0;
-        for (let dupRecord of thumbsMap.values()) {
+        for (const dupRecord of thumbsMap.values()) {
             if (dupRecord.duplicates.length > 0) {
                 numWithDups += 1;
                 totalDups += dupRecord.duplicates.length;
