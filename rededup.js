@@ -14,6 +14,65 @@ function loadImage(url) {
     });
 }
 
+/**
+ * Generate the nth Moore Curve as an L-system.
+ *
+ * @param {Number} n An integer n >= 1.
+ * @yields {String} A sequence of characters in ['L', 'R', 'F', '+', '-'].
+ */
+function* mooreCurveL(n) {
+    if (n === 1) {
+        yield* 'LFL+F+LFL';
+        return;
+    }
+    for (const c of mooreCurveL(n - 1)) {
+        switch (c) {
+            case 'L':
+                yield* '-RF+LFL+FR-';
+                break;
+            case 'R':
+                yield* '+LF-RFR-FL+';
+                break;
+            default:
+                yield c;
+                break;
+        }
+    }
+}
+
+/**
+ * Generate the nth Moore Curve as a sequence of points.
+ *
+ * @param {Number} n An integer n >= 1.
+ * @yields {Number[]} A sequence of (x, y) pairs describing a Moore curve over
+ *         a 2^n x 2^n grid.
+ */
+function* mooreCurve(p) {
+    const D = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    let x = (2 ** (p - 1)) - 1;
+    let y = (2 ** p) - 1;
+    let d = 0;
+
+    yield [x, y];
+    for (const c of mooreCurveL(p)) {
+        switch (c) {
+            case 'F':
+                x += D[d][0];
+                y += D[d][1];
+                yield [x, y];
+                break;
+            case '+':
+                d = (d + 1) % 4;
+                break;
+            case '-':
+                d = (d + 3) % 4;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 function getImageHash(img) {
     if (!img.complete) {
         throw "Image not complete";
@@ -21,34 +80,45 @@ function getImageHash(img) {
     if (img.naturalWidth === 0) {
         throw "Image broken";
     }
-    // "Difference hash" algorithm
-    // https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html
+
+    // An implementation of the "dHash" perceptual hash algorithm. The basic
+    // idea is to scale the image to a small fixed size and compare grayscale
+    // values between pixels to produce the bits of the hash.
+    // See https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html
     const canvas = document.createElement('canvas');
-    canvas.width = 9;
-    canvas.height = 8;
+    canvas.width = canvas.height = 8;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, 9, 8);
-    const imgData = ctx.getImageData(0, 0, 9, 8);
+    ctx.drawImage(img, 0, 0, 8, 8);
+    const imgData = ctx.getImageData(0, 0, 8, 8);
     const imgPixels = imgData.data;
+
+    // Rather than comparing pixels along each row of the scaled image, we
+    // compare pixel values along a space-filling loop, as suggested in a
+    // comment by user "AlexHackerFactor".
+    if (!getImageHash._MC3) {
+        getImageHash._MC3 = Array.from(
+            mooreCurve(3), (p) => (p[0] + (8*p[1])) * 4);
+    }
+    const MC3 = getImageHash._MC3;
+
     let hash = new Uint8Array(8);
-    let b = 0;
-    let h = 0;
-    let c = 0;
-    for (let i = 0; i < 288; i += 36) {
-        let p = (imgPixels[i] + imgPixels[i+1] + imgPixels[i+2]) / 3;
-        for (let j = 0; j < 32; j += 4) {
-            const q = (imgPixels[i+j+4] + imgPixels[i+j+5] + imgPixels[i+j+6]) / 3;
-            h = (h << 1) | ((p < q) ? 1 : 0);
-            c += 1;
-            if (c === 8) {
-                hash[b] = h;
-                b += 1;
-                h = 0;
-                c = 0;
-            }
-            p = q;
+    let byteIndex = 0;
+    let currentByte = 0;
+    let bitCount = 0;
+    let prev = (imgPixels[MC3[63]] + imgPixels[MC3[63]+1]
+                + imgPixels[MC3[63]+2]) / 3;
+    for (const p of MC3) {
+        const curr = (imgPixels[p] + imgPixels[p+1] + imgPixels[p+2]) / 3;
+        currentByte = (currentByte << 1) | ((prev < curr) ? 1 : 0);
+        bitCount += 1;
+        if (bitCount === 8) {
+            hash[byteIndex] = currentByte;
+            byteIndex += 1;
+            currentByte = 0;
+            bitCount = 0;
         }
+        prev = curr;
     }
     return hash.buffer;
 }
