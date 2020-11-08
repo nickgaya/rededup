@@ -179,28 +179,31 @@ function bufToString(buffer) {
  * Information about a link in the site table.
  * @typedef {Object} LinkInfo
  * @property {Element} thing - Top-level element for the link
- * @property {String} hash - Image hash of the link thumbnail
+ * @property {?ArrayBuffer} thumbnailHash - Image hash of the link thumbnail if
+ *     available
  */
 
 /**
- * Compute link info for a link thumbnail.
+ * Compute link info for a link in the site table.
  *
- * @param img An image element for a link thumbnail
- * @return {Promise<?LinkInfo>} Link information, or null if an exception
- *     occurred while fetching the image.
+ * @param {Element} thing A site table link
+ * @return {Promise<LinkInfo>} Link information
  */
-async function processThumbnail(img) {
-    try {
-        // Need to re-fetch the image due to same-origin policy
-        const soImg = await fetchImage(img.src);
-        return {
-            thing: img.parentElement.parentElement,
-            hash: getImageHash(soImg),
-        };
-    } catch (error) {
-        console.warn(img, error);
-        return null;
+async function getLinkInfo(thing) {
+    const linkInfo = {
+        thing: thing,
     }
+    const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
+    if (thumbnailImg) {
+        try {
+            // Need to re-fetch the image due to same-origin policy
+            const soImg = await fetchImage(thumbnailImg.src);
+            linkInfo.thumbnailHash = getImageHash(soImg);
+        } catch (error) {
+            console.warn("Failed to get thumbnail hash", thumbnailImg, error);
+        }
+    }
+    return linkInfo;
 }
 
 /**
@@ -285,53 +288,146 @@ function addDuplicate(dupRecord, thing) {
 }
 
 /**
+ * Disjoint-set node.
+ * @typedef {Object} DSNode
+ * @property value - Node value
+ * @property {?DSNode} parent - Parent node
+ * @property {Number} rank - Node rank
+ */
+
+/**
+ * Create a new disjoint-set node.
+ *
+ * @param value Node value
+ * @return {DSNode} A new node with the given value.
+ */
+function dsNode(value) {
+    return {
+        value: value,
+        parent: null,
+        rank: 0,
+    }
+}
+
+/**
+ * Find the representative of a disjoint-set node.
+ *
+ * @param {DSNode} node A node
+ * @return {DSNode} The given node's representative.
+ */
+function dsFind(node) {
+    while (node.parent) {
+        const parent = node.parent;
+        node.parent = parent.parent || parent;
+        node = parent;
+    }
+    return node;
+}
+
+/**
+ * Merge two disjoint-set nodes into the same tree.
+ *
+ * @param {DSNode} node A node
+ * @param {DSNode} other Another node
+ */
+function dsUnion(node, other) {
+    node = dsFind(node);
+    other = dsFind(other);
+    if (node === other) {
+        return;
+    }
+    if (node.rank < other.rank) {
+        const tmp = node;
+        node = other;
+        other = tmp;
+    }
+    other.parent = node;
+    if (node.rank === other.rank) {
+        node.rank += 1;
+    }
+}
+
+/**
  * Process a list of LinkInfo objects, find duplicates, and update the DOM.
  *
  * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
  *     information
- * @return {Promise<Map>} A map whose keys are thumbnail image hash strings and
- *     whose values are DupRecord objects.
+ * @return {DupRecord[]} An array of duplicate records.
  */
 async function findDuplicates(promises) {
+    // We use a disjoint-set data structure to group links having the same url
+    // or thumbnail image.
+    const nodes = [];
+    const urlsMap = new Map();
     const thumbsMap = new Map();
     for (const promise of promises) {
         const result = await promise;
-        if (!result) {
-            continue;
-        }
         const thing = result.thing;
-        const hashStr = bufToString(result.hash);
-        if (thumbsMap.has(hashStr)) {
-            const dupRecord = thumbsMap.get(hashStr);
+        const node = dsNode(thing);
+        nodes.push(node);
+        // Merge by URL
+        const url = thing.dataset.url;
+        if (urlsMap.has(url)) {
+            dsUnion(urlsMap.get(url), node);
+        } else {
+            urlsMap.set(url, node);
+        }
+        // Merge by thumbnail
+        if (result.thumbnailHash) {
+            const thumbKey = bufToString(result.thumbnailHash);
+            // Only merge thumbnails with the same domain
+            const domain = thing.dataset.domain;
+            if (thumbsMap.has(domain)) {
+                const domainMap = thumbsMap.get(domain);
+                if (domainMap.has(thumbKey)) {
+                    dsUnion(domainMap.get(thumbKey), node);
+                } else {
+                    domainMap.set(thumbKey, node);
+                }
+            } else {
+                const domainMap = new Map();
+                thumbsMap.set(domain, domainMap);
+                domainMap.set(thumbKey, node);
+            }
+        }
+    }
+    // Next we iterate over the forest and build a duplicate record for each
+    // tree in the forest. This also updates the DOM as we go.
+    const dupRecords = new Map();
+    for (const node of nodes) {
+        const thing = node.value;
+        const rep = dsFind(node);
+        if (dupRecords.has(rep)) {
+            const dupRecord = dupRecords.get(rep);
             addDuplicate(dupRecord, thing);
         } else {
-            thumbsMap.set(hashStr, {
+            dupRecords.set(rep, {
                 thing: thing,
                 duplicates: [],
                 showDuplicates: false,
             });
         }
     }
-    return thumbsMap;
+    // Return the list of duplicate records.
+    return Array.from(dupRecords.values());
 }
 
 {
     const t0 = performance.now();
-    const thumbs = document.body.querySelectorAll(
-        '#siteTable > .thing.link > .thumbnail > img');
-    console.log("Processing", thumbs.length, "thumbnails");
+    const links = document.body.querySelectorAll('#siteTable > .thing.link');
+    console.log("Processing", links.length, "links");
     // Init all promises, then process results in order
-    const promises = Array.from(thumbs, processThumbnail);
-    findDuplicates(promises).then((thumbsMap) => {
-        const t1 = performance.now();
+    const promises = Array.from(links, getLinkInfo);
+    findDuplicates(promises).then((dupRecords) => {
         let numWithDups = 0;
         let totalDups = 0;
-        for (const dupRecord of thumbsMap.values()) {
+        for (const dupRecord of dupRecords) {
             if (dupRecord.duplicates.length > 0) {
                 numWithDups += 1;
                 totalDups += dupRecord.duplicates.length;
             }
         }
+        const t1 = performance.now();
         console.log("Found", numWithDups, "items with",
                     totalDups, "total duplicates", `(${t1-t0} ms)`);
     }).catch((error) => {
