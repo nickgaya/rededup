@@ -163,19 +163,6 @@ function bufToHex(buffer) {
 }
 
 /**
- * Convert an ArrayBuffer to a string. Note that the resulting string may not
- * be valid UTF-16 data, so it should not be used for human-readable purposes.
- * The result depends on the platform's endianness.
- *
- * @param {ArrayBuffer} buffer An array of binary data
- * @return {String} A string whose code units correspond to the data
- *     interpreted as a Uint16Array.
- */
-function bufToString(buffer) {
-    return String.fromCharCode(...new Uint16Array(buffer));
-}
-
-/**
  * Information about a link in the site table.
  * @typedef {Object} LinkInfo
  * @property {Element} thing - Top-level element for the link
@@ -348,6 +335,100 @@ function dsUnion(node, other) {
 }
 
 /**
+ * Count the number of 1 bits in a 32-bit integer.
+ *
+ * @param {Number} n An integer
+ * @return {Number} The number of 1s in the integer's 32-bit representation.
+ */
+function bitCount32(n) {
+  n = n - ((n >> 1) & 0x55555555)
+  n = (n & 0x33333333) + ((n >> 2) & 0x33333333)
+  return ((n + (n >> 4) & 0xF0F0F0F) * 0x1010101) >> 24
+}
+
+/**
+ * Compute the Hamming distance between two 64-bit values, represented as pairs
+ * of 32-bit integers.
+ *
+ * @param {Int32Array} a1 An array containing two 32-bit integers
+ * @param {Int32Array} a2 A second array containing two 32-bit integers
+ * @return {Number} The Hamming distance between the two values.
+ */
+function hdist(a1, a2) {
+    return bitCount32(a1[0] ^ a2[0]) + bitCount32(a1[1] ^ a2[1]);
+}
+
+/**
+ * A BK-tree mapping image hashes to disjoint-set nodes. This implementation is
+ * specific to our use-case.
+ *
+ * @typedef {Object} BKNode
+ * @property {Int32Array} key - An image hash as a pair of 32-bit integers
+ * @property {DSNode} value - Disjoint-set node for the image hash
+ * @property {Map} children - A map from metric values to child nodes.
+ */
+
+/**
+ * Create a new BK-tree node.
+ *
+ * @param {Int32Array} key Node key
+ * @param {DSNode} value Node value
+ * @return {BKNode} A new node with the given key and value.
+ */
+function bkNew(key, value) {
+    return {
+        key: key,
+        value: value,
+        children: new Map(),
+    };
+}
+
+/**
+ * Add or update a key-value pair in a BK-tree map.
+ *
+ * @param {BKNode} bkNode BK-tree node
+ * @param {Int32Array} key Map key
+ * @param {DSNode} value Map value
+ */
+function bkSet(bkNode, key, value) {
+    while (true) {
+        const dist = hdist(bkNode.key, key);
+        if (dist === 0) {
+            bkNode.value = value;
+            return;
+        } else if (bkNode.children.has(dist)) {
+            bkNode = bkNode.children.get(dist);
+        } else {
+            bkNode.children.set(dist, bkNew(key, value));
+            return;
+        }
+    }
+}
+
+/**
+ * Find all nodes within a given distance for the given key in a BK-tree map.
+ *
+ * @param {BKNode} bkNode BK-tree node
+ * @param {Int32Array} key Map key
+ * @param {Number} maxDist Maximum Hamming distance, inclusive.
+ * @yields {DSNode} Values for all keys within the given Hamming distance of
+ *     the specified key.
+ */
+function* bkFind(bkNode, key, maxDist) {
+    const dist = hdist(bkNode.key, key);
+    if (dist <= maxDist) {
+        yield bkNode.value;
+    }
+    const i0 = Math.abs(dist - maxDist);
+    const i1 = Math.min(dist + maxDist, 64);
+    for (let i = i0; i <= i1; i += 1) {
+        if (bkNode.children.has(i)) {
+            yield* bkFind(bkNode.children.get(i), key, maxDist);
+        }
+    }
+}
+
+/**
  * Process a list of LinkInfo objects, find duplicates, and update the DOM.
  *
  * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
@@ -374,20 +455,17 @@ async function findDuplicates(promises) {
         }
         // Merge by thumbnail
         if (result.thumbnailHash) {
-            const thumbKey = bufToString(result.thumbnailHash);
+            const thumbKey = new Int32Array(result.thumbnailHash);
             // Only merge thumbnails with the same domain
             const domain = thing.dataset.domain;
             if (thumbsMap.has(domain)) {
                 const domainMap = thumbsMap.get(domain);
-                if (domainMap.has(thumbKey)) {
-                    dsUnion(domainMap.get(thumbKey), node);
-                } else {
-                    domainMap.set(thumbKey, node);
+                for (let otherNode of bkFind(domainMap, thumbKey, 4)) {
+                    dsUnion(node, otherNode);
                 }
+                bkSet(domainMap, thumbKey, node);
             } else {
-                const domainMap = new Map();
-                thumbsMap.set(domain, domainMap);
-                domainMap.set(thumbKey, node);
+                thumbsMap.set(domain, bkNew(thumbKey, node));
             }
         }
     }
@@ -428,8 +506,15 @@ async function findDuplicates(promises) {
             }
         }
         const t1 = performance.now();
-        console.log("Found", numWithDups, "items with",
-                    totalDups, "total duplicates", `(${t1-t0} ms)`);
+        if (numWithDups === 0) {
+            console.log("No duplicates found", `(${t1-t0} ms)`);
+        } else {
+            const s1 = numWithDups > 1 ? 's' : '';
+            const s2 = totalDups > 1 ? 's' : '';
+            console.log(`Found ${numWithDups} item${s1}`,
+                        `with ${totalDups} duplicate${s2}`,
+                        `(${t1-t0} ms)`);
+        }
     }).catch((error) => {
         console.error(error);
     });
