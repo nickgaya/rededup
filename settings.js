@@ -4,6 +4,7 @@ function onLoad() {
     const maxHammingDistance = document.getElementById('maxHammingDistance');
     const partitionByDomain = document.getElementById('partitionByDomain');
     const showHashValues = document.getElementById('showHashValues');
+    const reset = document.getElementById('reset');
 
     function hashFunctionListener(event) {
         if (event.target.checked) {
@@ -27,30 +28,36 @@ function onLoad() {
             {showHashValues: showHashValues.checked});
     });
 
+    reset.addEventListener('click', (event) => {
+        dctHash.checked = true;
+        maxHammingDistance.valueAsNumber = 4;
+        partitionByDomain.checked = true;
+        showHashValues.checked = false;
+        browser.storage.local.clear();
+    });
+
+    async function restoreSettings() {
+        const settings = await browser.storage.local.get(
+            ['hashFunction', 'maxHammingDistance', 'partitionByDomain',
+             'showHashValues']);
+        if (settings.hashFunction === 'dctHash') {
+            dctHash.checked = true;
+        } else if (settings.hashFunction === 'diffHash') {
+            diffHash.checked = true;
+        }
+        if (settings.maxHammingDistance !== undefined) {
+            maxHammingDistance.valueAsNumber = settings.maxHammingDistance;
+        }
+        if (settings.partitionByDomain !== undefined) {
+            partitionByDomain.checked = !!settings.partitionByDomain;
+        }
+        if (settings.showHashValues !== undefined) {
+            showHashValues.checked = !!settings.showHashValues;
+        }
+    }
+
     restoreSettings().catch(
         (error) => console.warn("Failed to retrieve settings", error));
-}
-
-async function restoreSettings() {
-    const settings = await browser.storage.local.get(
-        ['hashFunction', 'maxHammingDistance', 'partitionByDomain',
-         'showHashValues']);
-    if (settings.hashFunction === 'diffHash'
-        || settings.hashFunction === 'dctHash') {
-            document.getElementById(settings.hashFunction).checked = true;
-    }
-    if (settings.maxHammingDistance !== undefined) {
-        document.getElementById('maxHammingDistance').valueAsNumber =
-            settings.maxHammingDistance;
-    }
-    if (settings.partitionByDomain !== undefined) {
-        document.getElementById('partitionByDomain').checked =
-            !!settings.partitionByDomain;
-    }
-    if (settings.showHashValues !== undefined) {
-        document.getElementById('showHashValues').checked =
-            !!settings.showHashValues;
-    }
 }
 
 document.addEventListener("DOMContentLoaded", onLoad);

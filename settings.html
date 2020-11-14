@@ -15,20 +15,14 @@
              name="hashFunction" value="diffHash" />
             <label for="diffHash">Difference Hash</label>
         </div>
-
-        <!--
-        <label for="hashFunction">Image hash function</label>
-        <select id="hashFunction" name="hashFunction">
-            <option value="dctHash">DCT Hash</option>
-            <option value="diffHash">Difference Hash</option>
-        </select>
-        -->
     </div>
 
     <div>
         <label for="maxHammingDistance">Maximum Hamming distance</label>
-        <input id="maxHammingDistance" type="number"
-         min="0" max="8" value="4"/>
+        <div>
+            <input id="maxHammingDistance" type="range"
+             min="0" max="8" value="4" step="1"/>
+        </div>
     </div>
 
     <div>
@@ -39,6 +33,10 @@
     <div>
         <input id="showHashValues" type="checkbox" />
         <label for="showHashValues">Show hash values</label>
+    </div>
+
+    <div>
+    <button id="reset">Reset to defaults</button>
     </div>
 
     <script src="settings.js"></script>
