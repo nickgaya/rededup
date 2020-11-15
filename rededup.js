@@ -1,3 +1,5 @@
+const useDctHash = true;
+
 /**
  * Fetch data from an image URL, create an Image from the data, and return the
  * image once it has loaded. In order to fetch the image data the extension
@@ -104,14 +106,7 @@ function* mooreCurve(p) {
  * @param {Image} img An image in a complete, non-broken state
  * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
  */
-function getImageHash(img) {
-    if (!img.complete) {
-        throw "Image not complete";
-    }
-    if (img.naturalWidth === 0) {
-        throw "Image broken";
-    }
-
+function getDiffHash(img) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 8;
     const ctx = canvas.getContext('2d');
@@ -123,11 +118,11 @@ function getImageHash(img) {
     // Rather than comparing pixels along each row of the scaled image, we
     // compare pixel values along a space-filling loop, as suggested in a
     // comment by user "AlexHackerFactor".
-    if (!getImageHash._MC3) {
-        getImageHash._MC3 = Array.from(
+    if (!getDiffHash._MC3) {
+        getDiffHash._MC3 = Array.from(
             mooreCurve(3), (p) => (p[0] + (8*p[1])) * 4);
     }
-    const MC3 = getImageHash._MC3;
+    const MC3 = getDiffHash._MC3;
 
     let hash = new Uint8Array(8);
     let byteIndex = 0;
@@ -148,6 +143,94 @@ function getImageHash(img) {
         prev = curr;
     }
     return hash.buffer;
+}
+
+/**
+ * Transpose a matrix represented as an array of arrays.
+ *
+ * @param {*[][]} M The matrix to transpose
+ * @return {*[][]} The transpose of the given matrix.
+ */
+function transpose(M) {
+    const m = M.length;
+    const n = M[0].length;
+    const Mt = new Array(n);
+    for (let c = 0; c < n; c += 1) {
+        Mt[c] = new Array(m);
+    }
+    for (let r = 0; r < m; r += 1) {
+        M_r = M[r];
+        for (let c = 0; c < n; c += 1) {
+            Mt[c][r] = M_r[c];
+        }
+    }
+    return Mt;
+}
+
+/**
+ * Compute a 64-bit perceptual hash of an image based on the DCT. We scale the
+ * image to a 32x32 image, compute the 2-dimensional DCT, then use the sign
+ * bits of the upper-left triangle of coefficients as the bits of the hash.
+ *
+ * @param {Image} img An image in a complete, non-broken state
+ * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
+ */
+function getDctHash(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, 32, 32);
+    const imgData = ctx.getImageData(0, 0, 32, 32);
+    const imgPixels = imgData.data;
+
+    let X = new Array(32);
+    for (let i = 0; i < 32; i += 1) {
+        const Xi = X[i] = new Array(32);
+        for (let j = 0; j < 32; j += 1) {
+            const k = (32*i + j) * 4;
+            Xi[j] = (imgPixels[k] + imgPixels[k+1] + imgPixels[k+2]) / 3 - 128;
+        }
+    }
+    for (let r = 0; r < 32; r += 1) {
+        X[r] = fdct32_11(X[r]);
+    }
+    X = transpose(X);
+    for (let c = 0; c < 11; c += 1) {
+        X[c] = fdct32_11(X[c]);
+    }
+
+    let hash = new Uint8Array(8);
+    let byteIndex = 0;
+    let currentByte = 0;
+    let bitCount = 0;
+    for (let i = 1; i <= 10; i += 1) {
+        for (let j = 0; j <= i; j += 1) {
+            if (i === 10 && j === 5) {
+                continue;
+            }
+            currentByte = (currentByte << 1) | ((X[i-j][j] >= 0) ? 1 : 0);
+            bitCount += 1;
+            if (bitCount === 8) {
+                hash[byteIndex] = currentByte;
+                byteIndex += 1;
+                currentByte = 0;
+                bitCount = 0;
+            }
+        }
+    }
+    return hash.buffer;
+}
+
+function getImageHash(img) {
+    if (!img.complete) {
+        throw "Image not complete";
+    }
+    if (img.naturalWidth === 0) {
+        throw "Image broken";
+    }
+
+    return useDctHash ? getDctHash(img) : getDiffHash(img);
 }
 
 /**

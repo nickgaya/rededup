@@ -17,6 +17,7 @@
         "*://*.reddit.com/*"
       ],
       "js": [
+        "dct.js",
         "rededup.js"
       ]
     }
