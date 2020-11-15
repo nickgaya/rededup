@@ -308,6 +308,8 @@ function bufToString(buffer) {
  * Information about a link in the site table.
  * @typedef {Object} LinkInfo
  * @property {Element} thing - Top-level element for the link
+ * @property {String} url - Link url
+ * @property {String} domain - Link domain
  * @property {?ArrayBuffer} thumbnailHash - Image hash of the link thumbnail if
  *     available
  */
@@ -326,6 +328,8 @@ async function getLinkInfo(thing, settings) {
     }
     const linkInfo = {
         thing: thing,
+        url: thing.dataset.url,
+        domain: thing.dataset.domain,
     }
     const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
     if (thumbnailImg) {
@@ -582,6 +586,47 @@ function* bkFind(bkNode, key, maxDist) {
 }
 
 /**
+ * Update disjoint-set data structure for a given link based on thumbnail hash.
+ *
+ * @param {Map} thumbDomainMap Domain map
+ * @param {LinkInfo} info Link info
+ * @param {DSNode} node Disjoint-set node for the link
+ * @param {Settings} settings User settings
+ */
+function updateThumbMap(thumbDomainMap, info, node, settings) {
+    const domainKey = settings.partitionByDomain ? info.domain : '';
+    let thumbMap = thumbDomainMap.get(domainKey);
+    if (!thumbMap) {
+        // Set up data structures for new domain
+        thumbMap = new Map();
+        thumbMap.set(bufToString(info.thumbnailHash), node);
+        if (settings.maxHammingDistance > 0) {
+            thumbMap.bkMap = bkNew(new Int32Array(info.thumbnailHash), node);
+        }
+        thumbDomainMap.set(domainKey, thumbMap);
+        return;
+    }
+
+    const hashStr = bufToString(info.thumbnailHash);
+    if (thumbMap.has(hashStr)) {
+        // Exact hash match, merge with existing node
+        dsUnion(thumbMap.get(hashStr), node);
+        return;
+    }
+    thumbMap.set(hashStr, node);
+
+    if (settings.maxHammingDistance > 0) {
+        const bkMapKey = new Int32Array(info.thumbnailHash);
+        // Merge with hash values within max radius
+        for (let otherNode of bkFind(thumbMap.bkMap, bkMapKey,
+                                     settings.maxHammingDistance)) {
+            dsUnion(node, otherNode);
+        }
+        bkAdd(thumbMap.bkMap, bkMapKey, node);
+    }
+}
+
+/**
  * Process a list of LinkInfo objects, find duplicates, and update the DOM.
  *
  * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
@@ -593,8 +638,9 @@ async function findDuplicates(promises, settings) {
     // We use a disjoint-set data structure to group links having the same url
     // or thumbnail image.
     const nodes = [];
-    const urlsMap = new Map();
-    const thumbsMap = new Map();
+    const urlMap = new Map();
+    const thumbDomainMap = new Map();
+
     for (const promise of promises) {
         const result = await promise;
         if (!result) {
@@ -604,46 +650,20 @@ async function findDuplicates(promises, settings) {
         const node = dsNode(thing);
         nodes.push(node);
         // Merge by URL
-        const url = thing.dataset.url;
-        if (urlsMap.has(url)) {
-            dsUnion(urlsMap.get(url), node);
-        } else {
-            urlsMap.set(url, node);
+        if (result.url) {
+            const url = result.url;
+            if (urlMap.has(url)) {
+                dsUnion(urlMap.get(url), node);
+            } else {
+                urlMap.set(url, node);
+            }
         }
         // Merge by thumbnail
         if (result.thumbnailHash) {
-            const domain = settings.partitionByDomain
-                ? thing.dataset.domain : '';
-            if (settings.maxHammingDistance > 0) {
-                const thumbKey = new Int32Array(result.thumbnailHash);
-                if (thumbsMap.has(domain)) {
-                    const domainMap = thumbsMap.get(domain);
-                    for (let otherNode of bkFind(
-                             domainMap, thumbKey,
-                             settings.maxHammingDistance)) {
-                        dsUnion(node, otherNode);
-                    }
-                    bkAdd(domainMap, thumbKey, node);
-                } else {
-                    thumbsMap.set(domain, bkNew(thumbKey, node));
-                }
-            } else {
-                const thumbKey = bufToString(result.thumbnailHash);
-                if (thumbsMap.has(domain)) {
-                    const domainMap = thumbsMap.get(domain);
-                    if (domainMap.has(thumbKey)) {
-                        dsUnion(domainMap.get(thumbKey), node);
-                    } else {
-                        domainMap.set(thumbKey, node);
-                    }
-                 } else {
-                    const domainMap = new Map();
-                    thumbsMap.set(domain, domainMap);
-                    domainMap.set(thumbKey, node);
-                 }
-            }
+            updateThumbMap(thumbDomainMap, result, node, settings);
         }
     }
+
     // Next we iterate over the forest and build a duplicate record for each
     // tree in the forest. This also updates the DOM as we go.
     const dupRecords = new Map();
@@ -661,6 +681,7 @@ async function findDuplicates(promises, settings) {
             });
         }
     }
+
     // Return the list of duplicate records.
     return Array.from(dupRecords.values());
 }
