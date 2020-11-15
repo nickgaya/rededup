@@ -8,8 +8,14 @@
   "description": "Detect and hide duplicate posts on Reddit",
 
   "permissions": [
-    "*://*.thumbs.redditmedia.com/*"
+    "*://*.thumbs.redditmedia.com/*",
+    "storage"
   ],
+
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": false
+  },
 
   "content_scripts": [
     {

@@ -1,4 +1,35 @@
-const useDctHash = true;
+/**
+ * User settings.
+ *
+ * @typedef {Object} Settings
+ * @property {String} hashFunction - Image hash function
+ * @property {Number} maxHammingDistance - Maximum Hamming distance for
+ *     thumbnail hash comparison
+ * @property {Boolean} partitionByDomain - Whether to segregate posts by domain
+ *     when checking for thumbnail duplicates
+ * @property {Boolean} showHashValues - Whether to show thumbnail hash values
+ *     in post taglines
+ */
+
+/**
+ * Get user settings from local storage or default values.
+ *
+ * @return {Settings} Retrieved user settings.
+ */
+async function getSettings() {
+    const defaultSettings = {
+        hashFunction: 'dctHash',
+        maxHammingDistance: 4,
+        partitionByDomain: true,
+        showHashValues: false,
+    };
+    try {
+        return await browser.storage.local.get(defaultSettings);
+    } catch (error) {
+        console.warn("Error fetching settings", error);
+        return defaultSettings;
+    }
+}
 
 /**
  * Fetch data from an image URL, create an Image from the data, and return the
@@ -222,7 +253,14 @@ function getDctHash(img) {
     return hash.buffer;
 }
 
-function getImageHash(img) {
+/**
+ * Compute a 64-bit perceptual hash of an image.
+ *
+ * @param {Image} img An image in a complete, non-broken state
+ * @param {Settings} settings User settings
+ * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
+ */
+function getImageHash(img, settings) {
     if (!img.complete) {
         throw "Image not complete";
     }
@@ -230,7 +268,13 @@ function getImageHash(img) {
         throw "Image broken";
     }
 
-    return useDctHash ? getDctHash(img) : getDiffHash(img);
+    switch (settings.hashFunction) {
+        case 'diffHash':
+            return getDiffHash(img);
+        case 'dctHash':
+        default:
+            return getDctHash(img);
+    }
 }
 
 /**
@@ -246,6 +290,19 @@ function bufToHex(buffer) {
 }
 
 /**
+ * Convert an ArrayBuffer to a string. Note that the resulting string may not
+ * be valid UTF-16 data, so it should not be used for human-readable purposes.
+ * The result depends on the platform's endianness.
+ *
+ * @param {ArrayBuffer} buffer An array of binary data
+ * @return {String} A string whose code units correspond to the data
+ *     interpreted as a Uint16Array.
+ */
+function bufToString(buffer) {
+    return String.fromCharCode(...new Uint16Array(buffer));
+}
+
+/**
  * Information about a link in the site table.
  * @typedef {Object} LinkInfo
  * @property {Element} thing - Top-level element for the link
@@ -257,9 +314,10 @@ function bufToHex(buffer) {
  * Compute link info for a link in the site table.
  *
  * @param {Element} thing A site table link
+ * @param {Settings} settings User settings
  * @return {Promise<LinkInfo>} Link information
  */
-async function getLinkInfo(thing) {
+async function getLinkInfo(thing, settings) {
     const linkInfo = {
         thing: thing,
     }
@@ -268,7 +326,13 @@ async function getLinkInfo(thing) {
         try {
             // Need to re-fetch the image due to same-origin policy
             const soImg = await fetchImage(thumbnailImg.src);
-            linkInfo.thumbnailHash = getImageHash(soImg);
+            linkInfo.thumbnailHash = getImageHash(soImg, settings);
+            if (settings.showHashValues) {
+                const tagline = thing.querySelector('.tagline');
+                const hashElt = document.createElement('code');
+                hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
+                tagline.append(' [', hashElt, ']');
+            }
         } catch (error) {
             console.warn("Failed to get thumbnail hash", thumbnailImg, error);
         }
@@ -516,9 +580,10 @@ function* bkFind(bkNode, key, maxDist) {
  *
  * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
  *     information
+ * @param {Settings} settings User settings
  * @return {DupRecord[]} An array of duplicate records.
  */
-async function findDuplicates(promises) {
+async function findDuplicates(promises, settings) {
     // We use a disjoint-set data structure to group links having the same url
     // or thumbnail image.
     const nodes = [];
@@ -538,17 +603,35 @@ async function findDuplicates(promises) {
         }
         // Merge by thumbnail
         if (result.thumbnailHash) {
-            const thumbKey = new Int32Array(result.thumbnailHash);
-            // Only merge thumbnails with the same domain
-            const domain = thing.dataset.domain;
-            if (thumbsMap.has(domain)) {
-                const domainMap = thumbsMap.get(domain);
-                for (let otherNode of bkFind(domainMap, thumbKey, 4)) {
-                    dsUnion(node, otherNode);
+            const domain = settings.partitionByDomain
+                ? thing.dataset.domain : '';
+            if (settings.maxHammingDistance > 0) {
+                const thumbKey = new Int32Array(result.thumbnailHash);
+                if (thumbsMap.has(domain)) {
+                    const domainMap = thumbsMap.get(domain);
+                    for (let otherNode of bkFind(
+                             domainMap, thumbKey,
+                             settings.maxHammingDistance)) {
+                        dsUnion(node, otherNode);
+                    }
+                    bkSet(domainMap, thumbKey, node);
+                } else {
+                    thumbsMap.set(domain, bkNew(thumbKey, node));
                 }
-                bkSet(domainMap, thumbKey, node);
             } else {
-                thumbsMap.set(domain, bkNew(thumbKey, node));
+                const thumbKey = bufToString(result.thumbnailHash);
+                if (thumbsMap.has(domain)) {
+                    const domainMap = thumbsMap.get(domain);
+                    if (domainMap.has(thumbKey)) {
+                        dsUnion(domainMap.get(thumbKey), node);
+                    } else {
+                        domainMap.set(thumbKey, node);
+                    }
+                 } else {
+                    const domainMap = new Map();
+                    thumbsMap.set(domain, domainMap);
+                    domainMap.set(thumbKey, node);
+                 }
             }
         }
     }
@@ -573,32 +656,51 @@ async function findDuplicates(promises) {
     return Array.from(dupRecords.values());
 }
 
-{
+/**
+ * Log duplicate stats to the console.
+ *
+ * @param {DupRecord[]} dupRecords An array of duplicate records
+ * @param {Number} t0 Initial timestamp for performance measurement
+ */
+function logDupInfo(dupRecords, t0) {
+    let numWithDups = 0;
+    let totalDups = 0;
+    for (const dupRecord of dupRecords) {
+        if (dupRecord.duplicates.length > 0) {
+            numWithDups += 1;
+            totalDups += dupRecord.duplicates.length;
+        }
+    }
+    const t1 = performance.now();
+    if (numWithDups === 0) {
+        console.log("No duplicates found", `(${t1-t0} ms)`);
+    } else {
+        const s1 = numWithDups > 1 ? 's' : '';
+        const s2 = totalDups > 1 ? 's' : '';
+        console.log(`Found ${numWithDups} item${s1}`,
+                    `with ${totalDups} duplicate${s2}`,
+                    `(${t1-t0} ms)`);
+    }
+}
+
+/**
+ * Main content script entry point. Queries the DOM for links and performs
+ * duplicate processing.
+ */
+async function main() {
     const t0 = performance.now();
     const links = document.body.querySelectorAll('#siteTable > .thing.link');
-    console.log("Processing", links.length, "links");
-    // Init all promises, then process results in order
-    const promises = Array.from(links, getLinkInfo);
-    findDuplicates(promises).then((dupRecords) => {
-        let numWithDups = 0;
-        let totalDups = 0;
-        for (const dupRecord of dupRecords) {
-            if (dupRecord.duplicates.length > 0) {
-                numWithDups += 1;
-                totalDups += dupRecord.duplicates.length;
-            }
-        }
+    if (!links.length) {
         const t1 = performance.now();
-        if (numWithDups === 0) {
-            console.log("No duplicates found", `(${t1-t0} ms)`);
-        } else {
-            const s1 = numWithDups > 1 ? 's' : '';
-            const s2 = totalDups > 1 ? 's' : '';
-            console.log(`Found ${numWithDups} item${s1}`,
-                        `with ${totalDups} duplicate${s2}`,
-                        `(${t1-t0} ms)`);
-        }
-    }).catch((error) => {
-        console.error(error);
-    });
+        console.log("No links found", `(${t1-t0} ms)`);
+        return
+    }
+    console.log("Processing", links.length, "links");
+    const settings = await getSettings();
+    const promises = Array.from(
+        links, (thing) => getLinkInfo(thing, settings));
+    const dupRecords = await findDuplicates(promises, settings);
+    logDupInfo(dupRecords, t0);
 }
+
+main().catch((error) => console.error(error));
