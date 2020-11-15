@@ -47,9 +47,11 @@ async function getSettings() {
 async function fetchImage(srcUrl) {
     const resp = await fetch(srcUrl);
     const blobUrl = URL.createObjectURL(await resp.blob());
-    const result = await loadImage(blobUrl);
-    URL.revokeObjectURL(blobUrl);
-    return result;
+    try {
+        return await loadImage(blobUrl);
+    } finally {
+        URL.revokeObjectURL(blobUrl);
+    }
 }
 
 /**
@@ -359,7 +361,7 @@ async function getLinkInfo(thing, settings) {
  */
 function initTagline(dupRecord) {
     dupRecord.countElt = document.createElement('span');
-    dupRecord.countElt.textContent = '? duplicate(s)';
+    dupRecord.countElt.textContent = '0 duplicates';
     dupRecord.linkElt = document.createElement('a');
     dupRecord.linkElt.textContent = dupRecord.showDuplicates ? 'hide' : 'show';
     dupRecord.linkElt.href = '#';
@@ -531,17 +533,17 @@ function bkNew(key, value) {
 }
 
 /**
- * Add or update a key-value pair in a BK-tree map.
+ * Add a key-value pair in a BK-tree map. If the given key already exists, do
+ * nothing.
  *
  * @param {BKNode} bkNode BK-tree node
  * @param {Int32Array} key Map key
  * @param {DSNode} value Map value
  */
-function bkSet(bkNode, key, value) {
+function bkAdd(bkNode, key, value) {
     while (true) {
         const dist = hdist(bkNode.key, key);
         if (dist === 0) {
-            bkNode.value = value;
             return;
         } else if (bkNode.children.has(dist)) {
             bkNode = bkNode.children.get(dist);
@@ -614,7 +616,7 @@ async function findDuplicates(promises, settings) {
                              settings.maxHammingDistance)) {
                         dsUnion(node, otherNode);
                     }
-                    bkSet(domainMap, thumbKey, node);
+                    bkAdd(domainMap, thumbKey, node);
                 } else {
                     thumbsMap.set(domain, bkNew(thumbKey, node));
                 }
