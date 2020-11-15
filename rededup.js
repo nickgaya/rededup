@@ -131,6 +131,48 @@ function* mooreCurve(p) {
 }
 
 /**
+ * Scale the given image to the specified size and extract pixel data.
+ *
+ * @param {Image} img Source image
+ * @param {Number} width Desired width
+ * @param {Number} height Desired height
+ * @return {Uint8ClampedArray} Pixel data of scaled image.
+ */
+function getImagePixels(img, width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, width, height);
+    return ctx.getImageData(0, 0, width, height).data;
+}
+
+/**
+ * Generator to convert a stream of bits to an array of bytes. The caller uses
+ * the generator's next() method to supply a stream of bits. For each eight
+ * bits submitted, the generator adds a byte to the input array.
+ *
+ * @param {Uint8Array} arr Array for storing results
+ */
+function* bitAppender(arr) {
+    let byteIndex = 0;
+    let currentByte = 0;
+    let bitCount = 0;
+    while (true) {
+        const bit = yield;
+        currentByte = (currentByte << 1) | (bit ? 1 : 0);
+        bitCount += 1;
+        if (bitCount === 8) {
+            arr[byteIndex] = currentByte;
+            byteIndex += 1;
+            currentByte = 0;
+            bitCount = 0;
+        }
+    }
+}
+
+/**
  * Compute a 64-bit perceptual hash of an image using the "dHash" algorithm.
  * The basic idea is to scale the image to a small fixed size and compare
  * grayscale values between pixels to produce the bits of the hash.
@@ -140,14 +182,6 @@ function* mooreCurve(p) {
  * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
  */
 function getDiffHash(img) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 8;
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, 8, 8);
-    const imgData = ctx.getImageData(0, 0, 8, 8);
-    const imgPixels = imgData.data;
-
     // Rather than comparing pixels along each row of the scaled image, we
     // compare pixel values along a space-filling loop, as suggested in a
     // comment by user "AlexHackerFactor".
@@ -157,47 +191,18 @@ function getDiffHash(img) {
     }
     const MC3 = getDiffHash._MC3;
 
-    let hash = new Uint8Array(8);
-    let byteIndex = 0;
-    let currentByte = 0;
-    let bitCount = 0;
+    const imgPixels = getImagePixels(img, 8, 8);
+
+    const hash = new Uint8Array(8);
+    const hashGen = bitAppender(hash);
     let prev = (imgPixels[MC3[63]] + imgPixels[MC3[63]+1]
                 + imgPixels[MC3[63]+2]) / 3;
     for (const p of MC3) {
         const curr = (imgPixels[p] + imgPixels[p+1] + imgPixels[p+2]) / 3;
-        currentByte = (currentByte << 1) | ((prev < curr) ? 1 : 0);
-        bitCount += 1;
-        if (bitCount === 8) {
-            hash[byteIndex] = currentByte;
-            byteIndex += 1;
-            currentByte = 0;
-            bitCount = 0;
-        }
+        hashGen.next(prev < curr);
         prev = curr;
     }
     return hash.buffer;
-}
-
-/**
- * Transpose a matrix represented as an array of arrays.
- *
- * @param {*[][]} M The matrix to transpose
- * @return {*[][]} The transpose of the given matrix.
- */
-function transpose(M) {
-    const m = M.length;
-    const n = M[0].length;
-    const Mt = new Array(n);
-    for (let c = 0; c < n; c += 1) {
-        Mt[c] = new Array(m);
-    }
-    for (let r = 0; r < m; r += 1) {
-        M_r = M[r];
-        for (let c = 0; c < n; c += 1) {
-            Mt[c][r] = M_r[c];
-        }
-    }
-    return Mt;
 }
 
 /**
@@ -209,47 +214,42 @@ function transpose(M) {
  * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
  */
 function getDctHash(img) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, 32, 32);
-    const imgData = ctx.getImageData(0, 0, 32, 32);
-    const imgPixels = imgData.data;
-
-    let X = new Array(32);
-    for (let i = 0; i < 32; i += 1) {
-        const Xi = X[i] = new Array(32);
-        for (let j = 0; j < 32; j += 1) {
-            const k = (32*i + j) * 4;
-            Xi[j] = (imgPixels[k] + imgPixels[k+1] + imgPixels[k+2]) / 3 - 128;
+    const D = new Array(11);
+    {
+        const imgPixels = getImagePixels(img, 32, 32);
+        const X = new Float64Array(32);  // DCT input
+        const A_buf = new ArrayBuffer(32*11*8);  // Intermediate 32x11 array
+        for (let i = 0; i < 32; i++) {
+            for (let j = 0; j < 32; j++) {
+                const k = (32*i + j) * 4;
+                X[j] = (((imgPixels[k] + imgPixels[k+1] + imgPixels[k+2]) / 3)
+                        - 128);
+            }
+            const Z = new Float64Array(A_buf, i*88, 11);  // DCT output
+            fdct32_11(X, Z);
+        }
+        const A = new Float64Array(A_buf);  // Buffer view
+        const D_buf = new ArrayBuffer(11*11*8);  // 11x11 result buffer
+        for (let i = 0; i < 11; i++) {
+            // Copy column i of A into X
+            for (let j = 0; j < 32; j++) {
+                X[j] = A[j*11 + i];
+            }
+            const Z = D[i] = new Float64Array(D_buf, i*88, 11);  // DCT output
+            fdct32_11(X, Z);
         }
     }
-    for (let r = 0; r < 32; r += 1) {
-        X[r] = fdct32_11(X[r]);
-    }
-    X = transpose(X);
-    for (let c = 0; c < 11; c += 1) {
-        X[c] = fdct32_11(X[c]);
-    }
 
-    let hash = new Uint8Array(8);
-    let byteIndex = 0;
-    let currentByte = 0;
-    let bitCount = 0;
-    for (let i = 1; i <= 10; i += 1) {
-        for (let j = 0; j <= i; j += 1) {
+    const hash = new Uint8Array(8);
+    const hashGen = bitAppender(hash);
+    // To get 64 bits we take the upper-left triangle of size 11, omitting the
+    // zero-frequency coefficient at (0, 0) and the coefficient at (5, 5).
+    for (let i = 1; i <= 10; i++) {
+        for (let j = 0; j <= i; j++) {
             if (i === 10 && j === 5) {
                 continue;
             }
-            currentByte = (currentByte << 1) | ((X[i-j][j] >= 0) ? 1 : 0);
-            bitCount += 1;
-            if (bitCount === 8) {
-                hash[byteIndex] = currentByte;
-                byteIndex += 1;
-                currentByte = 0;
-                bitCount = 0;
-            }
+            hashGen.next(D[i-j][j] >= 0);
         }
     }
     return hash.buffer;

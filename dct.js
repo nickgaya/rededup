@@ -1,8 +1,4 @@
-// Compute the first 11 coefficients of the DCT-II on 32 inputs
-// This is based on the fast DCT algorithm outlined here:
-// https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.118.3056&rep=rep1&type=pdf#page=34
-// We unroll all loops / recursion and eliminate computations that are not
-// required to compute the first 11 coefficients.
+/** Compute the first 11 coefficients of the 32-element DCT-II. */
 const fdct32_11 = function() {
     const C0 = Math.cos(Math.PI / 4);
     const C1 = 0.5 / Math.cos(Math.PI * 1 / 8);
@@ -35,11 +31,12 @@ const fdct32_11 = function() {
     const C28 = 0.5 / Math.cos(Math.PI * 27 / 64);
     const C29 = 0.5 / Math.cos(Math.PI * 29 / 64);
     const C30 = 0.5 / Math.cos(Math.PI * 31 / 64);
+    const D0 = 2 ** -2.5;
+    const D1 = 2 ** -2.0;
 
-    // Preallocate buffer
-    const Y = new Array(32);
+    const Y = new Float64Array(32);
 
-    function fdct32_11(X) {
+    return function fdct32_11(X, Z) {
         Y[0] = X[0] + X[31];
         Y[1] = X[1] + X[30];
         Y[2] = X[2] + X[29];
@@ -249,7 +246,16 @@ const fdct32_11 = function() {
         Y[8] = X[4];
         Y[9] = X[20] + X[21];
         Y[10] = X[5];
-        return Y.slice(0, 11);
-    }
-    return fdct32_11;
+        Z[0] = Y[0] * D0;
+        Z[1] = Y[1] * D1;
+        Z[2] = Y[2] * D1;
+        Z[3] = Y[3] * D1;
+        Z[4] = Y[4] * D1;
+        Z[5] = Y[5] * D1;
+        Z[6] = Y[6] * D1;
+        Z[7] = Y[7] * D1;
+        Z[8] = Y[8] * D1;
+        Z[9] = Y[9] * D1;
+        Z[10] = Y[10] * D1;
+    };
 }();
