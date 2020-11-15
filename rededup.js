@@ -320,6 +320,10 @@ function bufToString(buffer) {
  * @return {Promise<LinkInfo>} Link information
  */
 async function getLinkInfo(thing, settings) {
+    if (!thing.offsetParent) {
+        // Element is not visible (perhaps due to ad blocker), skip it
+        return null;
+    }
     const linkInfo = {
         thing: thing,
     }
@@ -593,6 +597,9 @@ async function findDuplicates(promises, settings) {
     const thumbsMap = new Map();
     for (const promise of promises) {
         const result = await promise;
+        if (!result) {
+            continue;
+        }
         const thing = result.thing;
         const node = dsNode(thing);
         nodes.push(node);
