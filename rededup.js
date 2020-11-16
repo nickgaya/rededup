@@ -713,17 +713,23 @@ function logDupInfo(dupRecords, t0) {
     }
 }
 
+const duplicatesPath = new RegExp('^/[^/]+/[^/]+/duplicates/');
+
 /**
  * Main content script entry point. Queries the DOM for links and performs
  * duplicate processing.
  */
 async function main() {
     const t0 = performance.now();
+    const path = window.location.pathname;
+    if (duplicatesPath.test(path)) {
+        console.log("Other Discussions page");
+        return;
+    }
     const links = document.body.querySelectorAll('#siteTable > .thing.link');
     if (!links.length) {
-        const t1 = performance.now();
-        console.log("No links found", `(${t1-t0} ms)`);
-        return
+        console.log("No links found");
+        return;
     }
     console.log("Processing", links.length, "links");
     const settings = await getSettings();
