@@ -7,6 +7,11 @@
   "author": "Nicholas Gaya",
   "description": "Detect and hide duplicate posts on Reddit",
 
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
+
   "permissions": [
     "*://*.thumbs.redditmedia.com/*",
     "storage"

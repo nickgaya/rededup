@@ -41,3 +41,7 @@ Although searching for exact matches yields surprisingly good results, in order
 to further reduce false negatives we would like to group thumbnails whose hash
 values differ by only a few bits. In order to find such almost-equal hashes, we
 use a BK-tree, a simple data structure adapted to discrete metric spaces.
+
+## Credits
+
+Merge icon by [Freepik](https://www.freepik.com/) from [www.flaticon.com](https://www.flaticon.com/) (modified from original).
