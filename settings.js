@@ -2,6 +2,8 @@ function onLoad() {
     const dctHash = document.getElementById('dctHash');
     const diffHash = document.getElementById('diffHash');
     const maxHammingDistance = document.getElementById('maxHammingDistance');
+    const maxHammingDistanceText =
+        document.getElementById('maxHammingDistanceText');
     const partitionByDomain = document.getElementById('partitionByDomain');
     const showHashValues = document.getElementById('showHashValues');
     const reset = document.getElementById('reset');
@@ -15,15 +17,18 @@ function onLoad() {
     diffHash.addEventListener('change', hashFunctionListener);
 
     maxHammingDistance.addEventListener('change', (event) => {
+        maxHammingDistanceText.value = maxHammingDistance.value;
         browser.storage.local.set(
             {maxHammingDistance: maxHammingDistance.valueAsNumber});
+    });
+    maxHammingDistance.addEventListener('input', (event) => {
+        maxHammingDistanceText.value = maxHammingDistance.value;
     });
     partitionByDomain.addEventListener('change', (event) => {
         browser.storage.local.set(
             {partitionByDomain: partitionByDomain.checked});
     });
     showHashValues.addEventListener('change', (event) => {
-        console.log(event);
         browser.storage.local.set(
             {showHashValues: showHashValues.checked});
     });
@@ -31,6 +36,7 @@ function onLoad() {
     reset.addEventListener('click', (event) => {
         dctHash.checked = true;
         maxHammingDistance.valueAsNumber = 4;
+        maxHammingDistanceText.value = "4";
         partitionByDomain.checked = true;
         showHashValues.checked = false;
         browser.storage.local.clear();
@@ -47,6 +53,7 @@ function onLoad() {
         }
         if (settings.maxHammingDistance !== undefined) {
             maxHammingDistance.valueAsNumber = settings.maxHammingDistance;
+            maxHammingDistanceText.value = settings.maxHammingDistance;
         }
         if (settings.partitionByDomain !== undefined) {
             partitionByDomain.checked = !!settings.partitionByDomain;

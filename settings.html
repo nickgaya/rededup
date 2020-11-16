@@ -6,23 +6,22 @@
 
   <body>
     <div>
-        Image hash function: 
-        <div>
-            <input id="dctHash" type="radio"
-             name="hashFunction" value="dctHash" checked="checked" />
-            <label for="dctHash">DCT Hash</label>
-            <input id="diffHash" type="radio"
-             name="hashFunction" value="diffHash" />
-            <label for="diffHash">Difference Hash</label>
-        </div>
+        Image hash function
+        <input id="dctHash" type="radio"
+         name="hashFunction" value="dctHash" checked="checked" />
+        <label for="dctHash">DCT Hash</label>
+        <input id="diffHash" type="radio"
+         name="hashFunction" value="diffHash" />
+        <label for="diffHash">Difference Hash</label>
     </div>
 
     <div>
         <label for="maxHammingDistance">Maximum Hamming distance</label>
-        <div>
-            <input id="maxHammingDistance" type="range"
-             min="0" max="8" value="4" step="1"/>
-        </div>
+        <br />
+        <input id="maxHammingDistance" type="range"
+         min="0" max="8" value="4" step="1"/>
+        <input id="maxHammingDistanceText" type="text" size="1" value="4"
+         readonly="true" />
     </div>
 
     <div>
