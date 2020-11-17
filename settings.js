@@ -10,10 +10,24 @@ function onLoad() {
     const showHashValues = document.getElementById('showHashValues');
     const reset = document.getElementById('reset');
 
-    ddByUrlAndThumb.addEventListener('click', (event) =>
-        browser.storage.local.set({deduplicateThumbs: true}));
-    ddByUrlOnly.addEventListener('click', (event) =>
-        browser.storage.local.set({deduplicateThumbs: false}));
+    function updateThumbnailHashElementsDisabled() {
+        const disabled = ddByUrlOnly.checked;
+        dctHash.disabled = disabled;
+        diffHash.disabled = disabled;
+        maxHammingDistance.disabled = disabled;
+        maxHammingDistanceText.disabled = disabled;
+        partitionByDomain.disabled = disabled;
+        showHashValues.disabled = disabled;
+    };
+
+    ddByUrlAndThumb.addEventListener('click', (event) => {
+        browser.storage.local.set({deduplicateThumbs: true});
+        updateThumbnailHashElementsDisabled();
+    });
+    ddByUrlOnly.addEventListener('click', (event) => {
+        browser.storage.local.set({deduplicateThumbs: false});
+        updateThumbnailHashElementsDisabled();
+    });
 
     dctHash.addEventListener('click', (event) =>
         browser.storage.local.set({hashFunction: 'dctHash'}));
@@ -44,6 +58,7 @@ function onLoad() {
         maxHammingDistanceText.value = "4";
         partitionByDomain.checked = true;
         showHashValues.checked = false;
+        updateThumbnailHashElementsDisabled();
         browser.storage.local.clear();
     });
 
@@ -72,6 +87,7 @@ function onLoad() {
         if (settings.showHashValues !== undefined) {
             showHashValues.checked = !!settings.showHashValues;
         }
+        updateThumbnailHashElementsDisabled();
     }
 
     restoreSettings().catch(
