@@ -4,6 +4,7 @@ set -eu
 set -o pipefail
 
 FILES=(
+    LICENSE.txt
     manifest.json
     dct.js
     icon.svg
