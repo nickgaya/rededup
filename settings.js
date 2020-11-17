@@ -1,4 +1,6 @@
 function onLoad() {
+    const ddByUrlAndThumb = document.getElementById('ddByUrlAndThumb');
+    const ddByUrlOnly = document.getElementById('ddByUrlOnly');
     const dctHash = document.getElementById('dctHash');
     const diffHash = document.getElementById('diffHash');
     const maxHammingDistance = document.getElementById('maxHammingDistance');
@@ -8,13 +10,15 @@ function onLoad() {
     const showHashValues = document.getElementById('showHashValues');
     const reset = document.getElementById('reset');
 
-    function hashFunctionListener(event) {
-        if (event.target.checked) {
-            browser.storage.local.set({hashFunction: event.target.value});
-        }
-    }
-    dctHash.addEventListener('change', hashFunctionListener);
-    diffHash.addEventListener('change', hashFunctionListener);
+    ddByUrlAndThumb.addEventListener('click', (event) =>
+        browser.storage.local.set({deduplicateThumbs: true}));
+    ddByUrlOnly.addEventListener('click', (event) =>
+        browser.storage.local.set({deduplicateThumbs: false}));
+
+    dctHash.addEventListener('click', (event) =>
+        browser.storage.local.set({hashFunction: 'dctHash'}));
+    diffHash.addEventListener('click', (event) =>
+        browser.storage.local.set({hashFunction: 'diffHash'}));
 
     maxHammingDistance.addEventListener('change', (event) => {
         maxHammingDistanceText.value = maxHammingDistance.value;
@@ -34,6 +38,7 @@ function onLoad() {
     });
 
     reset.addEventListener('click', (event) => {
+        ddByUrlAndThumb.checked = true;
         dctHash.checked = true;
         maxHammingDistance.valueAsNumber = 4;
         maxHammingDistanceText.value = "4";
@@ -44,8 +49,14 @@ function onLoad() {
 
     async function restoreSettings() {
         const settings = await browser.storage.local.get(
-            ['hashFunction', 'maxHammingDistance', 'partitionByDomain',
-             'showHashValues']);
+            ['deduplicateThumbs', 'hashFunction', 'maxHammingDistance',
+             'partitionByDomain', 'showHashValues']);
+
+        if (settings.deduplicateThumbs === true) {
+            ddByUrlAndTHumb.checked = true;
+        } else if (settings.deduplicateThumbs === false) {
+            ddByUrlOnly.checked = true;
+        }
         if (settings.hashFunction === 'dctHash') {
             dctHash.checked = true;
         } else if (settings.hashFunction === 'diffHash') {

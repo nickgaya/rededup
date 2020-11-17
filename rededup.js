@@ -2,6 +2,8 @@
  * User settings.
  *
  * @typedef {Object} Settings
+ * @property {Boolean} deduplicateThumbs - Whether to deduplicate posts by
+ *     thumbnail
  * @property {String} hashFunction - Image hash function
  * @property {Number} maxHammingDistance - Maximum Hamming distance for
  *     thumbnail hash comparison
@@ -18,6 +20,7 @@
  */
 async function getSettings() {
     const defaultSettings = {
+        deduplicateThumbs: true,
         hashFunction: 'dctHash',
         maxHammingDistance: 4,
         partitionByDomain: true,
@@ -332,7 +335,7 @@ async function getLinkInfo(thing, settings) {
         domain: thing.dataset.domain,
     }
     const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
-    if (thumbnailImg) {
+    if (settings.deduplicateThumbs && thumbnailImg) {
         try {
             // Need to re-fetch the image due to same-origin policy
             const soImg = await fetchImage(thumbnailImg.src);
@@ -344,7 +347,8 @@ async function getLinkInfo(thing, settings) {
                 tagline.append(' [', hashElt, ']');
             }
         } catch (error) {
-            console.warn("Failed to get thumbnail hash", thumbnailImg, error);
+            console.warn("Failed to get thumbnail hash", thumbnailImg,
+                         error);
         }
     }
     return linkInfo;
@@ -659,7 +663,7 @@ async function findDuplicates(promises, settings) {
             }
         }
         // Merge by thumbnail
-        if (result.thumbnailHash) {
+        if (settings.deduplicateThumbs && result.thumbnailHash) {
             updateThumbMap(thumbDomainMap, result, node, settings);
         }
     }

@@ -6,6 +6,16 @@
 
   <body>
     <div>
+        Deduplicate posts by
+        <input id="ddByUrlAndThumb" type="radio" name="deduplicateBy"
+         value="urlAndThumb" checked="checked" />
+        <label for="ddByUrlAndThumb">URL and thumbnail</label>
+        <input id="ddByUrlOnly" type="radio" name="deduplicateBy"
+         value="urlOnly" />
+        <label for="ddByUrlOnly">URL only</label>
+    <div>
+
+    <div>
         Image hash function
         <input id="dctHash" type="radio"
          name="hashFunction" value="dctHash" checked="checked" />
@@ -31,7 +41,7 @@
 
     <div>
         <input id="showHashValues" type="checkbox" />
-        <label for="showHashValues">Show hash values</label>
+        <label for="showHashValues">Show thumbnail hashes</label>
     </div>
 
     <div>
