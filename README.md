@@ -42,6 +42,17 @@ to further reduce false negatives we would like to group thumbnails whose hash
 values differ by only a few bits. In order to find such almost-equal hashes, we
 use a BK-tree, a simple data structure adapted to discrete metric spaces.
 
+## Screenshots
+
+<figure>
+<figurecaption>The extension automatically detects and hides duplicate posts.</figurecaption>
+<img src="screenshots/s1_hide.png" width="640" />
+</figure>
+<figure>
+<figurecaption>Click the "show"/"hide" link to reveal or hide duplicates.</figurecaption>
+<img src="screenshots/s2_show.png" width="640" />
+</figure>
+
 ## Credits
 
 Merge icon by [Freepik](https://www.freepik.com/) from [www.flaticon.com](https://www.flaticon.com/) (modified from original).
