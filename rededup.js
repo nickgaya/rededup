@@ -713,7 +713,9 @@ function logDupInfo(dupRecords, t0) {
     }
 }
 
-const duplicatesPath = new RegExp('^/[^/]+/[^/]+/duplicates/');
+// Reddit has an option to show posts with the same URL as a given post
+// We shouldn't check for duplicates on these pages
+const duplicatesPath = new RegExp('^(/[^/]+/[^/]+)?/duplicates/');
 
 /**
  * Main content script entry point. Queries the DOM for links and performs
