@@ -2,10 +2,11 @@
   "manifest_version": 2,
 
   "name": "Reddit Deduplicator",
-  "version": "0.1",
+  "version": "1.0",
 
   "author": "Nicholas Gaya",
-  "description": "Detect and hide duplicate posts on Reddit",
+  "description": "Hide duplicate posts on pre-redesign Reddit.",
+  "homepage_url": "https://github.com/nickgaya/rededup/",
 
   "icons": {
     "48": "icon.svg",

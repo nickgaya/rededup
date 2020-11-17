@@ -1,6 +1,6 @@
 # Reddit Deduplicator
 
-A web extension to hide duplicate posts on "Old" Reddit.
+A web extension to hide duplicate posts on pre-redesign Reddit.
 
 When viewing a list of posts, the extension finds posts with the same URL or
 thumbnail and groups them together, showing only the first instance.
