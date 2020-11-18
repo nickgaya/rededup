@@ -31,11 +31,9 @@ functions:
   O(n<sup>2</sup>) multiplications. We use an optimized fast-DCT algorithm to
   compute the DCT with fewer arithmetic operations.
 
-    <figure>
-    <figcaption><em>Left</em>: Original image. <em>Right</em>: Reconstruction from the DCT hash.</figcaption>
-    <img src="images/gaugin1_original.png" width="105" height="128" />
-    <img src="images/gaugin2_reconstructed.png" width="105" height="128" />
-    </figure>
+    | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin2_reconstructed.png" width="105" height="128" /> |
+    | :---: | :---: |
+    | *Original* | *Visualization <br /> of DCT hash* |
 
 * **Difference Hash**: Scale the image to 8x8 grayscale and compare adjacent
   pixels along a space-filling loop. Use the results of the comparison as the
@@ -54,14 +52,13 @@ use a BK-tree, a simple data structure adapted to discrete metric spaces.
 
 ## Screenshots
 
-<figure>
-<figcaption>The extension automatically detects and hides duplicate posts.</figcaption>
-<img src="images/s1_hide.png" width="640" />
-</figure>
-<figure>
-<figcaption>Click the "show"/"hide" link to reveal or hide duplicates.</figcaption>
-<img src="images/s2_show.png" width="640" />
-</figure>
+| <img src="images/s1_hide.png" width="640" /> |
+| :---: |
+| *The extension automatically detects and hides duplicate posts.* |
+
+| <img src="images/s2_show.png" width="640" /> |
+| :---: |
+| *Click the "show"/"hide" link to reveal or hide duplicates.* |
 
 ## Credits
 
