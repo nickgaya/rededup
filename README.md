@@ -18,18 +18,28 @@ should be insensitive to minor changes in an image — visually similar images
 should have similar hash values. This extension offers two alternative hash
 functions:
 
-* DCT Hash: Scale the image to 32x32 and compute the direct cosine transform of
-  the pixel luminance values. Use the sign bits of the upper-left triangle of
-  coefficients as the bits of the hash.
+* **DCT Hash**: Scale the image to 32x32 and compute the direct cosine transform
+  (DCT) of the pixel luminance values. Use the sign bits of the upper-left
+  triangle of coefficients as the bits of the hash.
 
   This hash has good accuracy as much of the perceptual information in an image
-  is contained in the low-frequency components of the DCT. However, it can be
-  slow to compute. We use an optimized fast-DCT algorithm to compute the DCT
-  with fewer arithmetic operations.
+  is contained in the low-frequency components of the DCT. We can even use the
+  hash to reconstruct an image that preserves many large-scale features of the
+  original (see below).
 
-* Difference Hash: Scale the image to 8x8 grayscale and compare adjacent pixels
-  along a space-filling loop. Use the results of the comparison as the bits of
-  the hash.
+  However, the DCT can be slow to compute, as a naive implementation requires
+  O(n<sup>2</sup>) multiplications. We use an optimized fast-DCT algorithm to
+  compute the DCT with fewer arithmetic operations.
+
+    <figure>
+    <figcaption><em>Left</em>: Original image. <em>Right</em>: Reconstruction from the DCT hash.</figcaption>
+    <img src="images/gaugin1_original.png" width="105" height="128" />
+    <img src="images/gaugin2_reconstructed.png" width="105" height="128" />
+    </figure>
+
+* **Difference Hash**: Scale the image to 8x8 grayscale and compare adjacent
+  pixels along a space-filling loop. Use the results of the comparison as the
+  bits of the hash.
 
   This hash is very fast to compute, but is sensitive to minor fluctuations in
   brightness across "flat" areas of the image where the difference in
@@ -46,11 +56,11 @@ use a BK-tree, a simple data structure adapted to discrete metric spaces.
 
 <figure>
 <figcaption>The extension automatically detects and hides duplicate posts.</figcaption>
-<img src="screenshots/s1_hide.png" width="640" />
+<img src="images/s1_hide.png" width="640" />
 </figure>
 <figure>
 <figcaption>Click the "show"/"hide" link to reveal or hide duplicates.</figcaption>
-<img src="screenshots/s2_show.png" width="640" />
+<img src="images/s2_show.png" width="640" />
 </figure>
 
 ## Credits
