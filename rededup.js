@@ -35,254 +35,6 @@ async function getSettings() {
 }
 
 /**
- * Fetch data from an image URL, create an Image from the data, and return the
- * image once it has loaded. In order to fetch the image data the extension
- * must have cross-domain access for the source domain.
- *
- * The resulting image has the same origin as the extension, allowing us to
- * draw it to a canvas and extract its pixel data without violating the
- * browser's same-origin security policy.
- *
- * @see {@link https://stackoverflow.com/questions/49013975/}
- * @param {String} srcUrl An image url
- * @returns {Promise<Image>} An image with data from the source URL.
- */
-async function fetchImage(srcUrl) {
-    const resp = await fetch(srcUrl);
-    const blobUrl = URL.createObjectURL(await resp.blob());
-    try {
-        return await loadImage(blobUrl);
-    } finally {
-        URL.revokeObjectURL(blobUrl);
-    }
-}
-
-/**
- * Create an Image with the given url.
- *
- * @param {String} url An image url
- * @returns {Promise<Image>} A promise object that will be fulfilled with the
- *     image when loading is complete. If the image fails to load, the promise
- *     will be rejected.
- */
-function loadImage(url) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-    });
-}
-
-/**
- * Generate the nth Moore Curve as an L-system.
- *
- * @param {Number} n An integer n >= 1.
- * @yields {String} A sequence of characters in ['L', 'R', 'F', '+', '-'].
- */
-function* mooreCurveL(n) {
-    if (n === 1) {
-        yield* 'LFL+F+LFL';
-        return;
-    }
-    for (const c of mooreCurveL(n - 1)) {
-        switch (c) {
-            case 'L':
-                yield* '-RF+LFL+FR-';
-                break;
-            case 'R':
-                yield* '+LF-RFR-FL+';
-                break;
-            default:
-                yield c;
-                break;
-        }
-    }
-}
-
-/**
- * Generate the nth Moore Curve as a sequence of points.
- *
- * @param {Number} n An integer n >= 1.
- * @yields {Number[]} A sequence of (x, y) pairs describing a Moore curve over
- *         a 2^n x 2^n grid.
- */
-function* mooreCurve(p) {
-    const D = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-    let x = (2 ** (p - 1)) - 1;
-    let y = (2 ** p) - 1;
-    let d = 0;
-
-    yield [x, y];
-    for (const c of mooreCurveL(p)) {
-        switch (c) {
-            case 'F':
-                x += D[d][0];
-                y += D[d][1];
-                yield [x, y];
-                break;
-            case '+':
-                d = (d + 1) % 4;
-                break;
-            case '-':
-                d = (d + 3) % 4;
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-/**
- * Scale the given image to the specified size and extract pixel data.
- *
- * @param {Image} img Source image
- * @param {Number} width Desired width
- * @param {Number} height Desired height
- * @return {Uint8ClampedArray} Pixel data of scaled image.
- */
-function getImagePixels(img, width, height) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, width, height);
-    return ctx.getImageData(0, 0, width, height).data;
-}
-
-/**
- * Generator to convert a stream of bits to an array of bytes. The caller uses
- * the generator's next() method to supply a stream of bits. For each eight
- * bits submitted, the generator adds a byte to the input array.
- *
- * @param {Uint8Array} arr Array for storing results
- */
-function* bitAppender(arr) {
-    let byteIndex = 0;
-    let currentByte = 0;
-    let bitCount = 0;
-    while (true) {
-        const bit = yield;
-        currentByte = (currentByte << 1) | (bit ? 1 : 0);
-        bitCount += 1;
-        if (bitCount === 8) {
-            arr[byteIndex] = currentByte;
-            byteIndex += 1;
-            currentByte = 0;
-            bitCount = 0;
-        }
-    }
-}
-
-/**
- * Compute a 64-bit perceptual hash of an image using the "dHash" algorithm.
- * The basic idea is to scale the image to a small fixed size and compare
- * grayscale values between pixels to produce the bits of the hash.
- *
- * @see {@link https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html}
- * @param {Image} img An image in a complete, non-broken state
- * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
- */
-function getDiffHash(img) {
-    // Rather than comparing pixels along each row of the scaled image, we
-    // compare pixel values along a space-filling loop, as suggested in a
-    // comment by user "AlexHackerFactor".
-    if (!getDiffHash._MC3) {
-        getDiffHash._MC3 = Array.from(
-            mooreCurve(3), (p) => (p[0] + (8*p[1])) * 4);
-    }
-    const MC3 = getDiffHash._MC3;
-
-    const imgPixels = getImagePixels(img, 8, 8);
-
-    const hash = new Uint8Array(8);
-    const hashGen = bitAppender(hash);
-    let prev = (imgPixels[MC3[63]] + imgPixels[MC3[63]+1]
-                + imgPixels[MC3[63]+2]) / 3;
-    for (const p of MC3) {
-        const curr = (imgPixels[p] + imgPixels[p+1] + imgPixels[p+2]) / 3;
-        hashGen.next(prev < curr);
-        prev = curr;
-    }
-    return hash.buffer;
-}
-
-/**
- * Compute a 64-bit perceptual hash of an image based on the DCT. We scale the
- * image to a 32x32 image, compute the 2-dimensional DCT, then use the sign
- * bits of the upper-left triangle of coefficients as the bits of the hash.
- *
- * @param {Image} img An image in a complete, non-broken state
- * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
- */
-function getDctHash(img) {
-    const D = new Array(11);
-    {
-        const imgPixels = getImagePixels(img, 32, 32);
-        const X = new Float64Array(32);  // DCT input
-        const A_buf = new ArrayBuffer(32*11*8);  // Intermediate 32x11 array
-        for (let i = 0; i < 32; i++) {
-            for (let j = 0; j < 32; j++) {
-                const k = (32*i + j) * 4;
-                X[j] = (((imgPixels[k] + imgPixels[k+1] + imgPixels[k+2]) / 3)
-                        - 128);
-            }
-            const Z = new Float64Array(A_buf, i*88, 11);  // DCT output
-            fdct32_11(X, Z);
-        }
-        const A = new Float64Array(A_buf);  // Buffer view
-        const D_buf = new ArrayBuffer(11*11*8);  // 11x11 result buffer
-        for (let i = 0; i < 11; i++) {
-            // Copy column i of A into X
-            for (let j = 0; j < 32; j++) {
-                X[j] = A[j*11 + i];
-            }
-            const Z = D[i] = new Float64Array(D_buf, i*88, 11);  // DCT output
-            fdct32_11(X, Z);
-        }
-    }
-
-    const hash = new Uint8Array(8);
-    const hashGen = bitAppender(hash);
-    // To get 64 bits we take the upper-left triangle of size 11, omitting the
-    // zero-frequency coefficient at (0, 0) and the coefficient at (5, 5).
-    for (let i = 1; i <= 10; i++) {
-        for (let j = 0; j <= i; j++) {
-            if (i === 10 && j === 5) {
-                continue;
-            }
-            hashGen.next(D[i-j][j] >= 0);
-        }
-    }
-    return hash.buffer;
-}
-
-/**
- * Compute a 64-bit perceptual hash of an image.
- *
- * @param {Image} img An image in a complete, non-broken state
- * @param {Settings} settings User settings
- * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
- */
-function getImageHash(img, settings) {
-    if (!img.complete) {
-        throw "Image not complete";
-    }
-    if (img.naturalWidth === 0) {
-        throw "Image broken";
-    }
-
-    switch (settings.hashFunction) {
-        case 'diffHash':
-            return getDiffHash(img);
-        case 'dctHash':
-        default:
-            return getDctHash(img);
-    }
-}
-
-/**
  * Convert an ArrayBuffer to a human-readable hex string for logging or similar
  * purposes.
  *
@@ -334,21 +86,24 @@ async function getLinkInfo(thing, settings) {
         url: thing.dataset.url,
         domain: thing.dataset.domain,
     }
-    const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
-    if (settings.deduplicateThumbs && thumbnailImg) {
-        try {
-            // Need to re-fetch the image due to same-origin policy
-            const soImg = await fetchImage(thumbnailImg.src);
-            linkInfo.thumbnailHash = getImageHash(soImg, settings);
-            if (settings.showHashValues) {
-                const tagline = thing.querySelector('.tagline');
-                const hashElt = document.createElement('code');
-                hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
-                tagline.append(' [', hashElt, ']');
+    if (settings.deduplicateThumbs) {
+        const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
+        if (thumbnailImg) {
+            try {
+                // Make sure we have an absolute url
+                const imgUrl = new URL(thumbnailImg.src, window.location).href;
+                linkInfo.thumbnailHash = await fetchImageAndGetHash(
+                    imgUrl, settings.hashFunction);
+                if (settings.showHashValues) {
+                    const tagline = thing.querySelector('.tagline');
+                    const hashElt = document.createElement('code');
+                    hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
+                    tagline.append(' [', hashElt, ']');
+                }
+            } catch (error) {
+                console.warn("Failed to get thumbnail hash", thumbnailImg,
+                             error);
             }
-        } catch (error) {
-            console.warn("Failed to get thumbnail hash", thumbnailImg,
-                         error);
         }
     }
     return linkInfo;

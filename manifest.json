@@ -9,8 +9,8 @@
   "homepage_url": "https://github.com/nickgaya/rededup/",
 
   "icons": {
-    "48": "icon.svg",
-    "96": "icon.svg"
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
   },
 
   "permissions": [
@@ -30,6 +30,7 @@
       ],
       "js": [
         "dct.js",
+        "phash.js",
         "rededup.js"
       ]
     }
