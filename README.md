@@ -45,11 +45,11 @@ use a BK-tree, a simple data structure adapted to discrete metric spaces.
 ## Screenshots
 
 <figure>
-<figurecaption>The extension automatically detects and hides duplicate posts.</figurecaption>
+<figcaption>The extension automatically detects and hides duplicate posts.</figcaption>
 <img src="screenshots/s1_hide.png" width="640" />
 </figure>
 <figure>
-<figurecaption>Click the "show"/"hide" link to reveal or hide duplicates.</figurecaption>
+<figcaption>Click the "show"/"hide" link to reveal or hide duplicates.</figcaption>
 <img src="screenshots/s2_show.png" width="640" />
 </figure>
 
