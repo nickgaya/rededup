@@ -7,7 +7,8 @@
     "dct.js",
     "phash.js",
     "background.js"
-  ]
+  ],
+  "persistent": false
 })
 
 # Update content scripts
