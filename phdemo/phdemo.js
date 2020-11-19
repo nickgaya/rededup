@@ -53,17 +53,39 @@ function bufToHex(buffer) {
 }
 
 /** Create a text span representing an image hash value. */
-function hashTextElement(hash) {
+function hashTextElement(hash, other) {
     const code = document.createElement('code');
-    code.textContent = bufToHex(hash);
+    if (other) {
+        const hashHex = bufToHex(hash);
+        const otherHex = bufToHex(other);
+        let i = 0;
+        let length = hashHex.length;
+        while (i < length) {
+            if (hashHex.charAt(i) !== otherHex.charAt(i)) {
+                const red = document.createElement('span');
+                red.style = 'color: red';
+                do {
+                    red.append(hashHex.charAt(i));
+                } while (++i < length
+                         && hashHex.charAt(i) != otherHex.charAt(i));
+                code.append(red);
+            } else {
+                code.append(hashHex.charAt(i++));
+            }
+        }
+        code.normalize();
+    } else {
+        code.textContent = bufToHex(hash);
+    }
     const span = document.createElement('span');
     span.append('[', code, ']');
     return span;
 }
 
 /** Create a black-and-white image representing an image hash value. */
-function hashBitmap(hash) {
+function hashBitmap(hash, other) {
     const bytes = new Uint8Array(hash);
+    const oBytes = other ? new Uint8Array(other) : null;
     const canvas = document.createElement('canvas');
     canvas.width = 8;
     canvas.height = bytes.length;
@@ -73,30 +95,59 @@ function hashBitmap(hash) {
     for (let i = 0; i < bytes.length; i++) {
         const k = i * 32;
         let hb = bytes[i];
+        let ob = other ? oBytes[i] : null;
         for (let j = 7; j >= 0; j--) {
             const k2 = k + 4*j;
-            imgPixels[k2] = imgPixels[k2+1] = imgPixels[k2+2] =
-                (hb & 1) ? 0 : 255;
-            imgPixels[k2+3] = 255;
+            const bit = hb & 1;
             hb >>= 1;
+            if (other) {
+                const obit = ob & 1;
+                ob >>= 1;
+                if (bit === obit) {
+                    imgPixels[k2] = imgPixels[k2+1] = imgPixels[k2+2] =
+                        bit ? 0 : 255;
+                } else {
+                    imgPixels[k2] = bit ? 127: 255;
+                    imgPixels[k2+1] = imgPixels[k2+2] = 0;
+                }
+            } else {
+                imgPixels[k2] = imgPixels[k2+1] = imgPixels[k2+2] =
+                    bit ? 0 : 255;
+            }
+            imgPixels[k2+3] = 255;
         }
     }
     ctx.putImageData(imgData, 0, 0);
     return canvas;
 }
 
+function bitCount32(n) {
+  n = n - ((n >> 1) & 0x55555555)
+  n = (n & 0x33333333) + ((n >> 2) & 0x33333333)
+  return ((n + (n >> 4) & 0xF0F0F0F) * 0x1010101) >> 24
+}
+
+function hdist(h1, h2) {
+    const a1 = new Int32Array(h1);
+    const a2 = new Int32Array(h2);
+    return bitCount32(a1[0] ^ a2[0]) + bitCount32(a1[1] ^ a2[1]);
+}
+
 /** Create a div with textual and visual representations of a hash value. */
-function hashDiv(hash) {
+function hashDiv(hash, other) {
     const div = document.createElement('div');
-    div.append(wrap(hashTextElement(hash), 'div'),
-               wrap(scaleCanvas(hashBitmap(hash), 32, 32), 'div'));
+    div.append(wrap(hashTextElement(hash, other), 'div'),
+               wrap(scaleCanvas(hashBitmap(hash, other), 32, 32), 'div'));
+    if (other) {
+        div.append(wrap(`Hamming distance: ${hdist(hash, other)}`, 'div'));
+    }
     return div;
 }
 
 /** Wrap an element in a new element with the given tag name. */
 function wrap(element, tag) {
     const wrapper = document.createElement(tag);
-    wrapper.appendChild(element);
+    wrapper.append(element);
     return wrapper;
 }
 
@@ -216,58 +267,115 @@ function visualizeDctHash(dctHash) {
     return matrixToGrayscale(X);
 }
 
-/** Process a file and add its information to the output table. */
-async function handleFile(file) {
-    const img = await loadImageFile(file);
-    if (img.width > 128 || img.height > 128) {
-        const r = 128 / Math.max(img.width, img.height);
-        img.width = Math.floor(img.width * r);
-        img.height = Math.floor(img.height * r);
-    }
-    const tr = document.createElement('tr');
-
-    // Scaled image
-    tr.append(td(img));
-
-    // Difference hash
-    tr.append(td(scaleCanvas(showGrayscale(img, 8, 8), 32, 32)));
-    const diffHash = getImageHash(img, 'diffHash');
-    tr.append(td(hashDiv(diffHash)));
-
-    // DCT hash
-    tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
-    const dctHash = getImageHash(img, 'dctHash');
-    tr.append(td(hashDiv(dctHash)));
-    tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
-
-    document.getElementById('output').append(tr);
-}
-
-/** Handle all files of the file input element. */
-function handleFiles() {
-    const input = document.getElementById('input');
-    for (const file of input.files) {
-        handleFile(file).catch((error) => console.warn(file, error));
-    }
-}
-
-/** Clear the input and output elements. */
-function reset() {
-    document.getElementById('input').value = '';
-    const output = document.getElementById('output');
-    while (output.lastElementChild !== output.firstElementChild) {
-        output.removeChild(output.lastElementChild);
-    }
-}
-
 /** Main entry point for the demo. */
 function main() {
     const input = document.getElementById('input');
+    const inputReplace = document.getElementById('inputReplace');
+    const output = document.getElementById('output');
+    const compareNone = document.getElementById('compareNone');
+
+    const trMap = new WeakMap();
+    let compare;
+
+    /** Process a file and add its information to the output table. */
+    async function handleFile(file) {
+        const img = await loadImageFile(file);
+        if (img.width > 128 || img.height > 128) {
+            const r = 128 / Math.max(img.width, img.height);
+            img.width = Math.floor(img.width * r);
+            img.height = Math.floor(img.height * r);
+        }
+        const tr = document.createElement('tr');
+
+        // Scaled image
+        tr.append(td(img));
+
+        // Difference hash
+        tr.append(td(scaleCanvas(showGrayscale(img, 8, 8), 32, 32)));
+        const diffHash = getImageHash(img, 'diffHash');
+        tr.append(td(hashDiv(diffHash, compare?.diffHash)));
+
+        // DCT hash
+        tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
+        const dctHash = getImageHash(img, 'dctHash');
+        tr.append(td(hashDiv(dctHash, compare?.dctHash)));
+        tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
+
+        const hashes = { diffHash: diffHash, dctHash: dctHash };
+        trMap.set(tr, hashes);
+
+        // Radio button for comparison
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'compare';
+        radio.addEventListener('click', (event) => {
+            compare = hashes;
+            recomputeComparisons();
+        });
+        tr.append(td(radio));
+
+        output.append(tr);
+    }
+
+    function recomputeComparison(tr) {
+        const hashes = trMap.get(tr);
+        if (!hashes) {
+            return;  // Header row
+        }
+
+        if (compare === hashes) {
+            // Primary row
+            tr.children[2].replaceWith(td(hashDiv(hashes.diffHash)));
+            tr.children[4].replaceWith(td(hashDiv(hashes.dctHash)));
+        } else {
+            tr.children[2].replaceWith(
+                td(hashDiv(hashes.diffHash, compare?.diffHash)));
+            tr.children[4].replaceWith(
+                td(hashDiv(hashes.dctHash, compare?.dctHash)));
+        }
+    }
+
+    function recomputeComparisons() {
+        for (const tr of output.children) {
+            recomputeComparison(tr);
+        }
+    }
+
+    /** Clear the output table. */
+    function clearOutput() {
+        while (output.lastElementChild !== output.firstElementChild) {
+            output.removeChild(output.lastElementChild);
+        }
+        compareNone.checked = true;
+        compare = null;
+    }
+
+    /** Handle all files of the file input element. */
+    function handleFiles() {
+        if (inputReplace.checked) {
+            clearOutput();
+        }
+        for (const file of input.files) {
+            handleFile(file).catch((error) => console.warn(file, error));
+        }
+    }
+
+    /** Clear the input and output elements. */
+    function reset() {
+        input.value = '';
+        clearOutput();
+    }
+
     input.addEventListener('change', handleFiles);
-    // If user reloads the page there may be files already selected
-    handleFiles();
+    compareNone.addEventListener('click', () => {
+        compare = null;
+        recomputeComparisons();
+    });
 
     document.getElementById('reset').addEventListener('click', reset);
+
+    // If user reloads the page there may be files already selected
+    handleFiles();
 }
 
 document.addEventListener("DOMContentLoaded", main);
