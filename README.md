@@ -43,6 +43,9 @@ functions:
   brightness across "flat" areas of the image where the difference in
   brightness is close to zero.
 
+For visualizations of the different hash functions, see the
+[perceptual hash demo](phdemo/).
+
 ### Finding similar hashes
 
 Although searching for exact matches yields surprisingly good results, in order
