@@ -278,8 +278,7 @@ function main() {
     let compare;
 
     /** Process a file and add its information to the output table. */
-    async function handleFile(file) {
-        const img = await loadImageFile(file);
+    function processImage(img) {
         if (img.width > 128 || img.height > 128) {
             const r = 128 / Math.max(img.width, img.height);
             img.width = Math.floor(img.width * r);
@@ -352,18 +351,26 @@ function main() {
 
     /** Handle all files of the file input element. */
     function handleFiles() {
-        if (inputReplace.checked) {
+        if (input.files.length && inputReplace.checked) {
             clearOutput();
         }
         for (const file of input.files) {
-            handleFile(file).catch((error) => console.warn(file, error));
+            loadImageFile(file).then(processImage)
+                .catch((error) => console.warn(file, error));
         }
+    }
+
+    /** Add example image. */
+    function loadExample() {
+        loadImage('gaugin.jpg').then(processImage)
+            .catch((error) => console.warn(error));
     }
 
     /** Clear the input and output elements. */
     function reset() {
         input.value = '';
         clearOutput();
+        loadExample();
     }
 
     input.addEventListener('change', handleFiles);
@@ -374,6 +381,7 @@ function main() {
 
     document.getElementById('reset').addEventListener('click', reset);
 
+    loadExample();
     // If user reloads the page there may be files already selected
     handleFiles();
 }
