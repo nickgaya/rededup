@@ -313,6 +313,18 @@ function main() {
         });
         tr.append(td(radio));
 
+        const remove = document.createElement('button');
+        remove.textContent = '\u2715';
+        remove.addEventListener('click', (event) => {
+            tr.remove();
+            if (compare === hashes) {
+                compareNone.checked = true;
+                compare = null;
+                recomputeComparisons();
+            }
+        });
+        tr.append(td(remove));
+
         output.append(tr);
     }
 
