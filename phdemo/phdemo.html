@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Perceptual hash demo</title>
+  </head>
+  <body>
+    <p>
+      <label for="input">Select files</label>
+      <input type="file" id="input" multiple>
+    </p>
+    <p>
+      <table id="output">
+        <tr id="header">
+          <th>Image</th>
+          <th>8x8 grayscale</th>
+          <th>Difference hash</th>
+          <th>32x32 grayscale</th>
+          <th>DCT hash</th>
+          <th>DCT hash visualization</th>
+        </tr>
+      </table>
+    </p>
+    <p><button id="reset">Reset</button></p>
+    <script src="../dct.js"></script>
+    <script src="../phash.js"></script>
+    <script src="phdemo.js"></script>
+  </body>
+</html>
