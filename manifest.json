@@ -6,7 +6,7 @@
 
   "author": "Nicholas Gaya",
   "description": "Hide duplicate posts on pre-redesign Reddit.",
-  "homepage_url": "https://github.com/nickgaya/rededup/",
+  "homepage_url": "https://nickgaya.github.io/rededup/",
 
   "icons": {
     "48": "icons/icon.svg",
