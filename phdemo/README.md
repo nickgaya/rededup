@@ -1,7 +1,8 @@
 # Perceptual hash demo
 
 This directory contains a demonstration of the perceptual hash functionality
-used by Reddit Deduplicator to detect duplicate thumbnails.
+used by Reddit Deduplicator to detect duplicate thumbnails. Try it out at
+https://nickgaya.github.io/rededup/phdemo/.
 
 To use the demo, select one or more image files to open using the file chooser.
 The images will be added to the table along with visualizations of the
