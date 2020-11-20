@@ -126,7 +126,7 @@ function getImagePixels(img, width, height) {
  *
  * @param {Uint8Array} arr Array for storing results
  */
-function* bitAppender(arr) {
+function* bitAppenderGen(arr) {
     let byteIndex = 0;
     let currentByte = 0;
     let bitCount = 0;
@@ -135,12 +135,25 @@ function* bitAppender(arr) {
         currentByte = (currentByte << 1) | (bit ? 1 : 0);
         bitCount += 1;
         if (bitCount === 8) {
-            arr[byteIndex] = currentByte;
-            byteIndex += 1;
+            arr[byteIndex++] = currentByte;
             currentByte = 0;
             bitCount = 0;
         }
     }
+}
+
+/**
+ * Wrapper around bitAppenderGen() that starts the generator by calling its
+ * next() method once.
+ *
+ * @param {Uint8Array} arr Array for storing results
+ */
+function bitAppender(arr) {
+    const generator = bitAppenderGen(arr);
+    // The first call to a generator's next() method starts execution.
+    // Any argument passed in is discarded.
+    generator.next();
+    return generator;
 }
 
 /**

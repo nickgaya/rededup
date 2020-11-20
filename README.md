@@ -28,8 +28,8 @@ functions:
   original (see below).
 
   However, the DCT can be slow to compute, as a naive implementation requires
-  O(n<sup>2</sup>) multiplications. We use an optimized fast-DCT algorithm to
-  compute the DCT with fewer arithmetic operations.
+  O(n<sup>3</sup>) multiplications for an n×n input matrix. We use an optimized
+  fast-DCT algorithm to compute the DCT with fewer arithmetic operations.
 
     | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin2_reconstructed.png" width="105" height="128" /> |
     | :---: | :---: |
@@ -42,6 +42,9 @@ functions:
   This hash is very fast to compute, but is sensitive to minor fluctuations in
   brightness across "flat" areas of the image where the difference in
   brightness is close to zero.
+
+For visualizations of the different hash functions, see the
+[perceptual hash demo](phdemo/).
 
 ### Finding similar hashes
 
