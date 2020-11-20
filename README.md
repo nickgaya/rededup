@@ -8,6 +8,16 @@ thumbnail and groups them together, showing only the first instance.
 This is particularly useful when looking at a user's posts, as some users will
 post the same link or upload the same image to multiple subreddits.
 
+## Screenshots
+
+| <img src="images/s1_hide.png" width="640" /> |
+| :---: |
+| *The extension automatically detects and hides duplicate posts.* |
+
+| <img src="images/s2_show.png" width="640" /> |
+| :---: |
+| *Click the "show"/"hide" link to reveal or hide duplicates.* |
+
 ## Technical discussion
 
 ### Perceptual image hashing
@@ -52,16 +62,6 @@ Although searching for exact matches yields surprisingly good results, in order
 to further reduce false negatives we would like to group thumbnails whose hash
 values differ by only a few bits. In order to find such almost-equal hashes, we
 use a BK-tree, a simple data structure adapted to discrete metric spaces.
-
-## Screenshots
-
-| <img src="images/s1_hide.png" width="640" /> |
-| :---: |
-| *The extension automatically detects and hides duplicate posts.* |
-
-| <img src="images/s2_show.png" width="640" /> |
-| :---: |
-| *Click the "show"/"hide" link to reveal or hide duplicates.* |
 
 ## Credits
 
