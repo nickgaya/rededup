@@ -1,4 +1,4 @@
-# <img src="icons/icon.svg" width="48" /> Reddit Deduplicator
+# <img src="icons/icon.svg" height="32" /> Reddit Deduplicator
 
 A web extension to hide duplicate posts on pre-redesign Reddit.
 
