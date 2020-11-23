@@ -492,7 +492,8 @@ async function main() {
         console.log("No links found");
         return;
     }
-    console.log("Processing", links.length, "links");
+    console.log("Processing", links.length,
+                (links.length === 1) ? 'link' : 'links');
     const settings = await getSettings();
     const promises = Array.from(
         links, (thing) => getLinkInfo(thing, settings));
