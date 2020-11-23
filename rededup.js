@@ -22,7 +22,7 @@ async function getSettings() {
     const defaultSettings = {
         deduplicateThumbs: true,
         hashFunction: 'dctHash',
-        maxHammingDistance: 4,
+        maxHammingDistance: 8,
         partitionByDomain: true,
         showHashValues: false,
     };

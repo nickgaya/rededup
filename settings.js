@@ -54,8 +54,8 @@ function onLoad() {
     reset.addEventListener('click', (event) => {
         ddByUrlAndThumb.checked = true;
         dctHash.checked = true;
-        maxHammingDistance.valueAsNumber = 4;
-        maxHammingDistanceText.value = "4";
+        maxHammingDistance.valueAsNumber = 8;
+        maxHammingDistanceText.value = maxHammingDistance.value;
         partitionByDomain.checked = true;
         showHashValues.checked = false;
         updateThumbnailHashElementsDisabled();
