@@ -28,7 +28,15 @@ working even when there are no duplicates on the page.
 
     2. Repeat the steps for the front page.
 
-3. User page
+3. Multireddit
+
+    1. Navigate to a multireddit that contains duplicate posts, such as
+       https://old.reddit.com/r/illustration+drawing or
+       https://old.reddit.com/r/news+worldnews.
+
+    2. Repeat the steps for the front page.
+
+4. User page
 
     1. Find a user with duplicate posts (look on art-related subs like /r/IDAP
        or /r/Illustration).
@@ -39,7 +47,7 @@ working even when there are no duplicates on the page.
     3. Verify that the user comments page work as usual (log message "No links
        found").
 
-4. Post comments
+5. Post comments
 
     1. Find a link that has been posted more than once (look on /r/news or
        similar).
