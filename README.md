@@ -1,5 +1,7 @@
 # <img src="icons/icon.svg" height="32" /> Reddit Deduplicator
 
+[![Firefox: Get the add-on](images/ff_badge.png)](https://addons.mozilla.org/addon/rededup/)
+
 A web extension to hide duplicate posts on pre-redesign Reddit.
 
 When viewing a list of posts, the extension finds posts with the same URL or
