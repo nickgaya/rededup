@@ -1,6 +1,7 @@
 # <img src="icons/icon.svg" height="32" /> Reddit Deduplicator
 
 [![Firefox: Get the add-on](images/ff_badge.png)](https://addons.mozilla.org/addon/rededup/)
+[![Available in the Chrome Web Store](images/cws_badge.png)](https://chrome.google.com/webstore/detail/reddit-deduplicator/dnnbdjbnhfojinfmmiiehamhkheifbbg)
 
 A web extension to hide duplicate posts on pre-redesign Reddit.
 
