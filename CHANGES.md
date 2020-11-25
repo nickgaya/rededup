@@ -3,6 +3,7 @@
 ## Version 1.1
 
 - Minor fixes/improvements
+- Single source of truth for default settings
 
 ## Version 1.0
 

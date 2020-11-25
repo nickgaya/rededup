@@ -31,6 +31,7 @@
       "js": [
         "dct.js",
         "phash.js",
+        "settings.js",
         "rededup.js"
       ]
     }

@@ -15,6 +15,7 @@
 | (.content_scripts[0].js =  [
     "browser-polyfill.js",
     "bgshim.js",
+    "settings.js",
     "rededup.js"
 ])
 

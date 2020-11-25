@@ -27,6 +27,7 @@ FILES=(
     dct.js
     phash.js
     rededup.js
+    settings.js
     options/index.html
     options/index.js
 )
