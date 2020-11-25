@@ -2,6 +2,8 @@
 
 ## Version 1.1
 
+- Minor fixes/improvements
+
 ## Version 1.0
 
 - Initial release

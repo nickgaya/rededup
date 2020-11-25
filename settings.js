@@ -68,7 +68,7 @@ function onLoad() {
              'partitionByDomain', 'showHashValues']);
 
         if (settings.deduplicateThumbs === true) {
-            ddByUrlAndTHumb.checked = true;
+            ddByUrlAndThumb.checked = true;
         } else if (settings.deduplicateThumbs === false) {
             ddByUrlOnly.checked = true;
         }
