@@ -27,8 +27,8 @@ FILES=(
     dct.js
     phash.js
     rededup.js
-    settings.html
-    settings.js
+    options/index.html
+    options/index.js
 )
 FF_FILES=(
     "${FILES[@]}"
@@ -116,7 +116,7 @@ if $ch; then
         "${ch_build_dir}/browser-polyfill.js"
     CH_FILES+=(browser-polyfill.js)
     sed -e 's/\(\s*\)<!-- \(.*browser-polyfill.js.*\) -->/\1\2/g' \
-        <settings.html >"${ch_build_dir}/settings.html"
+        <options/index.html >"${ch_build_dir}/options/index.html"
     if $pkg; then
         echo "Chrome: Building artifacts/${vname}-ch.zip"
         (cd "${ch_build_dir}" && zip "${vname}-ch.zip" "${CH_FILES[@]}")
