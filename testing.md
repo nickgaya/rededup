@@ -53,11 +53,21 @@ working even when there are no duplicates on the page.
        similar).
 
     2. Navigate to the post comments and verify the page works as usual.
-       (The extension will log "Processing 1 link", "No duplicates found".)
+       (The extension should log "Single page" and not process the page
+       further.)
 
     3. Click on the "Other Discussions" tab and verify that the page works as
        usual. The extension should log "Other Discussions page" and not process
        any links.
+
+6. Search page
+
+    1. Navigate to https://old.reddit.com/search and enter a search that will
+       likely produce duplicates (e.g. a top headline from /r/news).
+
+    2. Verify that the search page functions as expected.
+
+    3. Verify that duplicates are coalesced as expected.
 
 ## Functionality
 

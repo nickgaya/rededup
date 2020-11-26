@@ -24,6 +24,75 @@ function bufToString(buffer) {
 }
 
 /**
+ * Enum for page types.
+ * @readonly
+ * @enum {String}
+ */
+const PageType = {
+    LISTING_PAGE: 'listing page',
+    SEARCH_PAGE: 'search page',
+}
+
+/**
+ * @typedef {Object} Links
+ * @property {?NodeList} links - A list of link elements.
+ * @property {String} pageType - Page type
+ */
+
+/**
+ * Get links from the current page.
+ * @return {Links} An object containing the list of links and type.
+ */
+function getLinks() {
+    // See https://www.reddit.com/r/csshelp/wiki/selectors
+    if (!document.body.classList.length) {
+        return {pageType: "New Reddit"};
+    } else if (document.body.classList.contains('other-discussions-page')) {
+        // The other discussion page shows posts with the same URL as a given
+        // post. We don't want to check for duplicates in this view.
+        return {pageType: "Other Discussions page"};
+    } else if (document.body.classList.contains('single-page')) {
+        // No need to check for duplicates when viewing a single post.
+        return {pageType: "single page"};
+    } else if (document.body.classList.contains('listing-page')) {
+        // Subreddit or user profile page
+        return {
+            links: document.body.querySelectorAll('#siteTable > .thing.link'),
+            pageType: PageType.LISTING_PAGE,
+        };
+    } else if (document.body.classList.contains('search-page')) {
+        // Search results have a different page structure
+        return {
+            links: document.body.querySelectorAll(
+                '.search-result-listing .search-result-link'),
+            pageType: PageType.SEARCH_PAGE,
+        };
+    } else {
+        // Other page such as post submission form, wiki page, etc.
+        console.debug("Other page type", document.body.classList);
+        return {pageType: "other"};
+    }
+}
+
+/**
+ * Get the tagline element of a link.
+ *
+ * @param {Element} thing Top-level element for the link
+ * @param {String} pageType Page type
+ * @return {Element} The link's tagline element.
+ */
+function getTagline(thing, pageType) {
+    switch (pageType) {
+        case PageType.LISTING_PAGE:
+            return thing.querySelector('.tagline');
+        case PageType.SEARCH_PAGE:
+            return thing.querySelector('.search-result-meta');
+        default:
+            throw "Invalid page type";
+    }
+}
+
+/**
  * Information about a link in the site table.
  * @typedef {Object} LinkInfo
  * @property {Element} thing - Top-level element for the link
@@ -37,19 +106,39 @@ function bufToString(buffer) {
  * Compute link info for a link in the site table.
  *
  * @param {Element} thing A site table link
+ * @param {String} pageType Page type
  * @param {Settings} settings User settings
  * @return {Promise<LinkInfo>} Link information
  */
-async function getLinkInfo(thing, settings) {
+async function getLinkInfo(thing, pageType, settings) {
     if (!thing.offsetParent) {
         // Element is not visible (perhaps due to ad blocker), skip it
         return null;
     }
+
     const linkInfo = {
         thing: thing,
-        url: thing.dataset.url,
-        domain: thing.dataset.domain,
     }
+
+    switch (pageType) {
+        case PageType.LISTING_PAGE:
+            linkInfo.url = thing.dataset.url;
+            linkInfo.domain = thing.dataset.domain;
+            break;
+        case PageType.SEARCH_PAGE:
+            const anchor = thing.querySelector('a.search-link')
+                || thing.querySelector('a.search-title');
+            if (anchor) {
+                const linkUrl = new URL(anchor.href, window.location);
+                linkInfo.url = linkUrl.href;
+                linkInfo.domain = linkUrl.hostname;
+            }
+            break;
+        default:
+            throw "Invalid link type";
+    }
+
+
     if (settings.deduplicateThumbs) {
         const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
         if (thumbnailImg) {
@@ -59,10 +148,9 @@ async function getLinkInfo(thing, settings) {
                 linkInfo.thumbnailHash = await fetchImageAndGetHash(
                     imgUrl, settings.hashFunction);
                 if (settings.showHashValues) {
-                    const tagline = thing.querySelector('.tagline');
                     const hashElt = document.createElement('code');
                     hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
-                    tagline.append(' [', hashElt, ']');
+                    getTagline(thing, pageType).append(' [', hashElt, ']');
                 }
             } catch (error) {
                 console.warn("Failed to get thumbnail hash", thumbnailImg,
@@ -89,8 +177,9 @@ async function getLinkInfo(thing, settings) {
  * Add elements to a post's tagline and updates the duplicate record.
  *
  * @param {DupRecord} dupRecord Information about the link
+ * @param {String} pageType Page type
  */
-function initTagline(dupRecord) {
+function initTagline(dupRecord, pageType) {
     dupRecord.countElt = document.createElement('span');
     dupRecord.countElt.textContent = '0 duplicates';
     dupRecord.linkElt = document.createElement('a');
@@ -105,9 +194,12 @@ function initTagline(dupRecord) {
         }
         return false;
     });
-    const tagline = dupRecord.thing.querySelector('.tagline');
+    const tagline = getTagline(dupRecord.thing, pageType);
     tagline.append(' (', dupRecord.countElt, ' — ', dupRecord.linkElt, ')');
 }
+
+const clearleftDiv = document.createElement('div');
+clearleftDiv.className = 'clearleft';
 
 /**
  * Move a thing in the site table to come after another thing.
@@ -118,7 +210,15 @@ function initTagline(dupRecord) {
 function moveThingAfter(thing, otherThing) {
     // Each thing in the site table is followed by an empty
     // <div class="clearleft"></div> element, we want to preserve that.
-    thing.nextSibling.after(otherThing, otherThing.nextSibling);
+    let pred = thing;
+    if (clearleftDiv.isEqualNode(thing.nextSibling)) {
+        pred = thing.nextSibling;
+    }
+    if (clearleftDiv.isEqualNode(otherThing.nextSibling)) {
+        pred.after(otherThing, otherThing.nextSibling);
+    } else {
+        pred.after(otherThing);
+    }
 }
 
 /**
@@ -136,9 +236,10 @@ function lastItem(items, defaultValue) {
  * Add a duplicate to the given duplicate record and update the DOM as needed.
  *
  * @param {DupRecord} dupRecord A duplicate record
+ * @param {String} pageType Page type
  * @param {Element} thing A link element to add as a duplicate
  */
-function addDuplicate(dupRecord, thing) {
+function addDuplicate(dupRecord, thing, pageType) {
     // Update display CSS property
     thing.style.display = dupRecord.showDuplicates ? '' : 'none';
     // Reorder duplicate to come after preceding duplicate or primary
@@ -147,7 +248,7 @@ function addDuplicate(dupRecord, thing) {
     dupRecord.duplicates.push(thing);
     // Update primary link tagline
     if (!dupRecord.countElt) {
-        initTagline(dupRecord);
+        initTagline(dupRecord, pageType);
     }
     const s = dupRecord.duplicates.length > 1 ? 's' : '';
     dupRecord.countElt.textContent =
@@ -317,7 +418,7 @@ function* bkFind(bkNode, key, maxDist) {
  * @param {Settings} settings User settings
  */
 function updateThumbMap(thumbDomainMap, info, node, settings) {
-    const domainKey = settings.partitionByDomain ? info.domain : '';
+    const domainKey = settings.partitionByDomain ? (info.domain || '') : '';
     let thumbMap = thumbDomainMap.get(domainKey);
     if (!thumbMap) {
         // Set up data structures for new domain
@@ -354,10 +455,11 @@ function updateThumbMap(thumbDomainMap, info, node, settings) {
  *
  * @param {Promise<LinkInfo>[]} promises An iterable of promises with link
  *     information
+ * @param {String} pageType Page type
  * @param {Settings} settings User settings
  * @return {DupRecord[]} An array of duplicate records.
  */
-async function findDuplicates(promises, settings) {
+async function findDuplicates(promises, pageType, settings) {
     // We use a disjoint-set data structure to group links having the same url
     // or thumbnail image.
     const nodes = [];
@@ -365,16 +467,15 @@ async function findDuplicates(promises, settings) {
     const thumbDomainMap = new Map();
 
     for (const promise of promises) {
-        const result = await promise;
-        if (!result) {
+        const linkInfo = await promise;
+        if (!linkInfo) {
             continue;
         }
-        const thing = result.thing;
-        const node = dsNode(thing);
+        const node = dsNode(linkInfo);
         nodes.push(node);
         // Merge by URL
-        if (result.url) {
-            const url = result.url;
+        if (linkInfo.url) {
+            const url = linkInfo.url;
             if (urlMap.has(url)) {
                 dsUnion(urlMap.get(url), node);
             } else {
@@ -382,8 +483,8 @@ async function findDuplicates(promises, settings) {
             }
         }
         // Merge by thumbnail
-        if (settings.deduplicateThumbs && result.thumbnailHash) {
-            updateThumbMap(thumbDomainMap, result, node, settings);
+        if (settings.deduplicateThumbs && linkInfo.thumbnailHash) {
+            updateThumbMap(thumbDomainMap, linkInfo, node, settings);
         }
     }
 
@@ -391,14 +492,14 @@ async function findDuplicates(promises, settings) {
     // tree in the forest. This also updates the DOM as we go.
     const dupRecords = new Map();
     for (const node of nodes) {
-        const thing = node.value;
+        const linkInfo = node.value;
         const rep = dsFind(node);
         if (dupRecords.has(rep)) {
             const dupRecord = dupRecords.get(rep);
-            addDuplicate(dupRecord, thing);
+            addDuplicate(dupRecord, linkInfo.thing, pageType);
         } else {
             dupRecords.set(rep, {
-                thing: thing,
+                thing: linkInfo.thing,
                 duplicates: [],
                 showDuplicates: false,
             });
@@ -436,32 +537,28 @@ function logDupInfo(dupRecords, t0) {
     }
 }
 
-// Reddit has an option to show posts with the same URL as a given post
-// We shouldn't check for duplicates on these pages
-const duplicatesPath = new RegExp('^(/[^/]+/[^/]+)?/duplicates/');
-
 /**
  * Main content script entry point. Queries the DOM for links and performs
  * duplicate processing.
  */
 async function main() {
     const t0 = performance.now();
-    const path = window.location.pathname;
-    if (duplicatesPath.test(path)) {
-        console.log("Other Discussions page");
+    const {links, pageType} = getLinks();
+    if (!links) {
+        console.log("Not processing page", `(${pageType})`);
         return;
     }
-    const links = document.body.querySelectorAll('#siteTable > .thing.link');
     if (!links.length) {
-        console.log("No links found");
+        console.log("No links found", `(${pageType})`);
         return;
     }
     console.log("Processing", links.length,
-                (links.length === 1) ? 'link' : 'links');
+                (links.length === 1) ? 'link' : 'links',
+                `(${pageType})`);
     const settings = await getSettings();
     const promises = Array.from(
-        links, (thing) => getLinkInfo(thing, settings));
-    const dupRecords = await findDuplicates(promises, settings);
+        links, (thing) => getLinkInfo(thing, pageType, settings));
+    const dupRecords = await findDuplicates(promises, pageType, settings);
     logDupInfo(dupRecords, t0);
 }
 
