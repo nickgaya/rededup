@@ -69,6 +69,21 @@ further reduce false negatives we group thumbnails whose hash values differ by
 only a few bits. To find such almost-equal hashes, we use a BK-tree, a simple
 data structure adapted to discrete metric spaces such as Hamming space.
 
+## Known limitations
+
+* **Crop sensitivity** For both image hash algorithms currently supported,
+  cropping an image can radically change its hash value, which can cause the
+  extension not to detect near-duplicates with slight framing differences.
+
+* **Unrelated duplicate thumbnails** Sometimes unrelated pages for non-media
+  sites will have the same thumbnail. For example, news articles from *The
+  Independent* are sometimes wrongly identified as duplicates due to having the
+  same generic "breaking news" thumbnail.
+
+* **Variant URLs** Sometimes different users will post the same URL with small
+  variations, such as tracking parameters. Currently the extension only looks
+  for exact duplicates when deduplicating by URL.
+
 ## Credits
 
 Merge icon by [Freepik](https://www.freepik.com/) from [www.flaticon.com](https://www.flaticon.com/) (modified from original).
