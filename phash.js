@@ -12,6 +12,7 @@
  * @see {@link https://stackoverflow.com/questions/49013975/}
  * @see {@link https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts#XHR_and_Fetch}
  * @see {@link https://www.chromium.org/Home/chromium-security/extension-content-script-fetches}
+ * @see {@link https://developer.chrome.com/extensions/xhr}
  * @param {String} srcUrl An image url
  * @returns {Promise<Image>} An image with data from the source URL.
  */
