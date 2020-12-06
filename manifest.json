@@ -30,6 +30,7 @@
       ],
       "js": [
         "dct.js",
+        "dwt.js",
         "phash.js",
         "settings.js",
         "rededup.js"

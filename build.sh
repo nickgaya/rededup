@@ -25,6 +25,7 @@ FILES=(
     LICENSE.txt
     manifest.json
     dct.js
+    dwt.js
     phash.js
     rededup.js
     settings.js

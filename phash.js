@@ -1,4 +1,15 @@
 /**
+ * Image hash function enum.
+ * @readonly
+ * @enum {String}
+ */
+const HashFunction = Object.freeze({
+    DIFFERENCE_HASH: 'diffHash',
+    DCT_HASH: 'dctHash',
+    WAVELET_HASH: 'waveletHash',
+});
+
+/**
  * Fetch data from an image URL, create an Image from the data, and return the
  * image once it has loaded.
  *
@@ -191,6 +202,17 @@ function getDiffHash(img) {
 }
 
 /**
+ * Return whether a given number is positive. +0 is treated as an infinitesimal
+ * positive number.
+ *
+ * @param {Number} x A number
+ * @return {Boolean} True if x is greater than 0 or +0
+ */
+function isPositive(x) {
+    return x > 0 || Object.is(x, +0);
+}
+
+/**
  * Compute a 64-bit perceptual hash of an image based on the DCT. We scale the
  * image to a 32x32 image, compute the 2-dimensional DCT, then use the sign
  * bits of the upper-left triangle of coefficients as the bits of the hash.
@@ -234,7 +256,37 @@ function getDctHash(img) {
             if (i === 10 && j === 5) {
                 continue;
             }
-            hashGen.next(D[i-j][j] >= 0);
+            hashGen.next(isPositive(D[i-j][j]));
+        }
+    }
+    return hash.buffer;
+}
+
+function getWaveletHash(img) {
+    // Populate input matrix
+    const M = new Array(32);
+    {
+        const imgPixels = getImagePixels(img, 32, 32);
+        const M_data = new Float64Array(32*32);
+        let k = 0;  // pixel array offset
+        let o = 0;  // M_data offset
+        for (let r = 0; r < 32; r++) {
+            const M_r = M[r] = M_data.subarray(o, (o+=32));
+            for (let c = 0; c < 32; c++) {
+                M_r[c] = imgPixels[k] + imgPixels[k+1] + imgPixels[k+2] - 384;
+                k += 4;
+            }
+        }
+    }
+    // Compute the discrete wavelet transform
+    dwt(M);
+    // Use sign bits of upper 8x8 submatrix as hash bits
+    const hash = new Uint8Array(8);
+    const hashGen = bitAppender(hash);
+    for (let i = 0; i < 8; i++) {
+        const M_i = M[i];
+        for (let j = 0; j<8; j++) {
+            hashGen.next(isPositive(M_i[j]));
         }
     }
     return hash.buffer;
@@ -256,10 +308,12 @@ function getImageHash(img, hashFunction) {
     }
 
     switch (hashFunction) {
-        case 'diffHash':
+        case HashFunction.DIFFERENCE_HASH:
             return getDiffHash(img);
-        case 'dctHash':
+        case HashFunction.DCT_HASH:
             return getDctHash(img);
+        case HashFunction.WAVELET_HASH:
+            return getWaveletHash(img);
         default:
             throw "Invalid hash function";
     }
