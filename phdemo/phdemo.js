@@ -311,25 +311,20 @@ function main() {
         // Scaled image
         tr.append(td(img));
 
-        // Difference hash
-        tr.append(td(scaleCanvas(showGrayscale(img, 8, 8), 32, 32)));
-        const diffHash = hashes.diffHash =
-            getImageHash(img, HashFunction.DIFFERENCE_HASH);
-        tr.append(td(hashDiv(diffHash, compare?.diffHash)));
-
         // DCT hash
-        tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
         const dctHash = hashes.dctHash =
             getImageHash(img, HashFunction.DCT_HASH);
         tr.append(td(hashDiv(dctHash, compare?.dctHash)));
-        tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
+
+        // Difference hash
+        const diffHash = hashes.diffHash =
+            getImageHash(img, HashFunction.DIFFERENCE_HASH);
+        tr.append(td(hashDiv(diffHash, compare?.diffHash)));
 
         // Wavelet hash
         const waveletHash = hashes.waveletHash =
             getImageHash(img, HashFunction.WAVELET_HASH);
         tr.append(td(hashDiv(waveletHash, compare?.waveletHash)));
-        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash),
-                                 128, 128)));
 
         // Radio button for comparison
         const radio = document.createElement('input');
@@ -340,6 +335,12 @@ function main() {
             recomputeComparisons();
         });
         tr.append(td(radio));
+
+        // Visualizations
+        tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
+        tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
+        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash),
+                                 128, 128)));
 
         const remove = document.createElement('button');
         remove.textContent = '\u2715';
@@ -364,15 +365,15 @@ function main() {
 
         if (compare === hashes) {
             // Primary row
+            tr.children[1].replaceWith(td(hashDiv(hashes.dctHash)));
             tr.children[2].replaceWith(td(hashDiv(hashes.diffHash)));
-            tr.children[4].replaceWith(td(hashDiv(hashes.dctHash)));
-            tr.children[6].replaceWith(td(hashDiv(hashes.waveletHash)));
+            tr.children[3].replaceWith(td(hashDiv(hashes.waveletHash)));
         } else {
+            tr.children[1].replaceWith(
+                td(hashDiv(hashes.dctHash, compare?.dctHash)));
             tr.children[2].replaceWith(
                 td(hashDiv(hashes.diffHash, compare?.diffHash)));
-            tr.children[4].replaceWith(
-                td(hashDiv(hashes.dctHash, compare?.dctHash)));
-            tr.children[6].replaceWith(
+            tr.children[3].replaceWith(
                 td(hashDiv(hashes.waveletHash, compare?.waveletHash)));
         }
     }
