@@ -5,6 +5,7 @@
   "scripts": [
     "browser-polyfill.js",
     "dct.js",
+    "dwt.js",
     "phash.js",
     "background.js"
   ],

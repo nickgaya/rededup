@@ -47,7 +47,7 @@ functions:
   O(n<sup>3</sup>) multiplications for an n×n input matrix. We use an optimized
   fast-DCT algorithm to compute the DCT with fewer arithmetic operations.
 
-    | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin2_reconstructed.png" width="105" height="128" /> |
+    | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin2_dct.png" width="105" height="128" /> |
     | :---: | :---: |
     | *Original* | *DCT hash <br /> visualization* |
 
@@ -59,7 +59,22 @@ functions:
   brightness across "flat" areas of the image where the difference in
   brightness is close to zero.
 
-For visualizations of the different hash functions, see the
+* **Wavelet Hash**: Scale the image to 32x32 and compute the discrete wavelet
+  transform (DWT). We use the Haar wavelet given the small input size, and for
+  simplicity. Take the sign bits of the upper 8x8 coefficients of the
+  transformed matrix as the bits of the hash.
+
+  Using the fast wavelet transform algorithm, this hash is relatively fast to
+  compute and improves on the difference hash by balancing local and global
+  pixel comparisons. As with the DCT hash, it is possible to reconstruct
+  something resembling the original image from the hash bits, although at a
+  very low resolution.
+
+    | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin3_dwt.png" width="105" height="128" /> |
+    | :---: | :---: |
+    | *Original* | *Wavelet hash <br /> visualization* |
+
+For an interactive visualization of the different hash functions, see the
 [perceptual hash demo](phdemo/).
 
 ### Finding similar hashes

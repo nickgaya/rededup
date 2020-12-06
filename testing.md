@@ -44,7 +44,7 @@ working even when there are no duplicates on the page.
     2. Verify that duplicates are handled as expected on the user's overview
        page and submissions page.
 
-    3. Verify that the user comments page work as usual (log message "No links
+    3. Verify that the user comments page works as usual (log message "No links
        found").
 
 5. Post comments
@@ -147,15 +147,17 @@ These tests verify the settings UI and the different settings values.
 
 2. Hash function
 
-    1. Navigate to https://old.reddit.com/by_id/t3_jz43h4,t3_jz3x31.
+    1. Navigate to https://old.reddit.com/by_id/t3_k7rhax,t3_k7rdve.
 
     2. Verify that the two posts are collated.
 
     3. In the extension settings, select the "Difference Hash" function.
 
-    4. Refresh the page from step 1.
+    4. Refresh the page and verify that the two posts are still collated.
 
-    5. Verify that the two posts are still collated.
+    5. In the extension settings, select the "Difference Hash" function.
+
+    6. Refresh the page and verify that the two posts are still collated.
 
 3. Hamming distance
 

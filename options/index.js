@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ddByUrlOnly = document.getElementById('ddByUrlOnly');
     const dctHash = document.getElementById('dctHash');
     const diffHash = document.getElementById('diffHash');
+    const waveletHash = document.getElementById('waveletHash');
     const maxHammingDistance = document.getElementById('maxHammingDistance');
     const maxHammingDistanceText =
         document.getElementById('maxHammingDistanceText');
@@ -15,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const disabled = ddByUrlOnly.checked;
         dctHash.disabled = disabled;
         diffHash.disabled = disabled;
+        waveletHash.disabled = disabled;
         maxHammingDistance.disabled = disabled;
         maxHammingDistanceText.disabled = disabled;
         partitionByDomain.disabled = disabled;
@@ -30,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (settings.hashFunction === 'diffHash') {
             diffHash.checked = true;
+        } else if (settings.hashFunction === 'waveletHash') {
+            waveletHash.checked = true;
         } else {
             dctHash.checked = true;
         }
@@ -53,6 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
         browser.storage.local.set({hashFunction: 'dctHash'}));
     diffHash.addEventListener('click', (event) =>
         browser.storage.local.set({hashFunction: 'diffHash'}));
+    waveletHash.addEventListener('click', (event) =>
+        browser.storage.local.set({hashFunction: 'waveletHash'}));
 
     maxHammingDistance.addEventListener('change', (event) => {
         maxHammingDistanceText.value = maxHammingDistance.value;
