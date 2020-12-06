@@ -267,6 +267,26 @@ function visualizeDctHash(dctHash) {
     return matrixToGrayscale(X);
 }
 
+function visualizeWaveletHash(hash) {
+    const M = new Array(8);
+    const M_data = new Float64Array(8*8);
+    let o = 0;
+    for (let r = 0; r < 8; r++) {
+        M[r] = M_data.subarray(o, o+=8);
+    }
+    const bitsGen = hashBits(hash);
+    for (let i = 0; i < 8; i++) {
+        const M_i = M[i];
+        for (let j = 0; j < 8; j++) {
+            const x = [1, 0.5, 0.25, 0.25,
+                       0.125, 0.125, 0.125, 0.125][Math.max(i, j)];
+            M_i[j] = bitsGen.next().value ? x : -x;
+        }
+    }
+    idwt(M);
+    return matrixToGrayscale(M);
+}
+
 /** Main entry point for the demo. */
 function main() {
     const input = document.getElementById('input');
@@ -285,23 +305,31 @@ function main() {
             img.height = Math.floor(img.height * r);
         }
         const tr = document.createElement('tr');
+        const hashes = {};
+        trMap.set(tr, hashes);
 
         // Scaled image
         tr.append(td(img));
 
         // Difference hash
         tr.append(td(scaleCanvas(showGrayscale(img, 8, 8), 32, 32)));
-        const diffHash = getImageHash(img, 'diffHash');
+        const diffHash = hashes.diffHash =
+            getImageHash(img, HashFunction.DIFFERENCE_HASH);
         tr.append(td(hashDiv(diffHash, compare?.diffHash)));
 
         // DCT hash
         tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
-        const dctHash = getImageHash(img, 'dctHash');
+        const dctHash = hashes.dctHash =
+            getImageHash(img, HashFunction.DCT_HASH);
         tr.append(td(hashDiv(dctHash, compare?.dctHash)));
         tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
 
-        const hashes = { diffHash: diffHash, dctHash: dctHash };
-        trMap.set(tr, hashes);
+        // Wavelet hash
+        const waveletHash = hashes.waveletHash =
+            getImageHash(img, HashFunction.WAVELET_HASH);
+        tr.append(td(hashDiv(waveletHash, compare?.waveletHash)));
+        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash),
+                                 128, 128)));
 
         // Radio button for comparison
         const radio = document.createElement('input');
@@ -338,11 +366,14 @@ function main() {
             // Primary row
             tr.children[2].replaceWith(td(hashDiv(hashes.diffHash)));
             tr.children[4].replaceWith(td(hashDiv(hashes.dctHash)));
+            tr.children[6].replaceWith(td(hashDiv(hashes.waveletHash)));
         } else {
             tr.children[2].replaceWith(
                 td(hashDiv(hashes.diffHash, compare?.diffHash)));
             tr.children[4].replaceWith(
                 td(hashDiv(hashes.dctHash, compare?.dctHash)));
+            tr.children[6].replaceWith(
+                td(hashDiv(hashes.waveletHash, compare?.waveletHash)));
         }
     }
 
