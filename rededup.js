@@ -28,10 +28,10 @@ function bufToString(buffer) {
  * @readonly
  * @enum {String}
  */
-const PageType = {
+const PageType = Object.freeze({
     LISTING_PAGE: 'listing page',
     SEARCH_PAGE: 'search page',
-}
+});
 
 /**
  * @typedef {Object} Links

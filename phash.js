@@ -1,4 +1,14 @@
 /**
+ * Image hash function enum.
+ * @readonly
+ * @enum {String}
+ */
+const HashFunction = Object.freeze({
+    DIFFERENCE_HASH: 'diffHash',
+    DCT_HASH: 'dctHash',
+});
+
+/**
  * Fetch data from an image URL, create an Image from the data, and return the
  * image once it has loaded.
  *
@@ -256,9 +266,9 @@ function getImageHash(img, hashFunction) {
     }
 
     switch (hashFunction) {
-        case 'diffHash':
+        case HashFunction.DIFFERENCE_HASH:
             return getDiffHash(img);
-        case 'dctHash':
+        case HashFunction.DCT_HASH:
             return getDctHash(img);
         default:
             throw "Invalid hash function";
