@@ -2,3 +2,10 @@ td {
     text-align: center;
     vertical-align: middle;
 }
+
+img {
+  image-rendering: optimizeSpeed;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  border: 1px solid;
+}

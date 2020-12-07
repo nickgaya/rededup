@@ -37,13 +37,11 @@ function showGrayscale(img, width, height) {
 
 /** Scale a canvas to a specified size. */
 function scaleCanvas(canvas, width, height) {
-    const scaled = document.createElement('canvas');
-    scaled.width = width;
-    scaled.height = height;
-    const ctx = scaled.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-    return scaled;
+    const img = new Image();
+    img.width = width;
+    img.height = height;
+    img.src = canvas.toDataURL();
+    return img;
 }
 
 /** Convert a buffer to a hex string. */
