@@ -1,4 +1,15 @@
 /**
+ * Image hash function enum.
+ * @readonly
+ * @enum {String}
+ */
+const HashFunction = Object.freeze({
+    DIFFERENCE_HASH: 'diffHash',
+    DCT_HASH: 'dctHash',
+    WAVELET_HASH: 'waveletHash',
+});
+
+/**
  * Fetch data from an image URL, create an Image from the data, and return the
  * image once it has loaded.
  *
@@ -12,6 +23,7 @@
  * @see {@link https://stackoverflow.com/questions/49013975/}
  * @see {@link https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts#XHR_and_Fetch}
  * @see {@link https://www.chromium.org/Home/chromium-security/extension-content-script-fetches}
+ * @see {@link https://developer.chrome.com/extensions/xhr}
  * @param {String} srcUrl An image url
  * @returns {Promise<Image>} An image with data from the source URL.
  */
@@ -171,22 +183,55 @@ function getDiffHash(img) {
     // comment by user "AlexHackerFactor".
     if (!getDiffHash._MC3) {
         getDiffHash._MC3 = Array.from(
-            mooreCurve(3), (p) => (p[0] + (8*p[1])) * 4);
+            mooreCurve(3), (p) => p[0] + (8*p[1]));
     }
     const MC3 = getDiffHash._MC3;
 
-    const imgPixels = getImagePixels(img, 8, 8);
+    // Use a canvas to scale the image to 32x32, then manually downsample to
+    // 8x8 by averaging. This is intended to reduce the effect of cross-browser
+    // differences in image scaling behavior.
+    const G = new Float64Array(64);
+    {
+        const imgPixels = getImagePixels(img, 32, 32);
+        const stride = 32 * 4;
+        for (let i = 0; i < 8; i++) {
+            const i4 = i*4;
+            for (let j = 0; j < 8; j++) {
+                const j4 = j*4;
+                let sum = 0;
+                let k = i4*stride + j4;
+                for (let di = 0; di < 4; di++) {
+                    for (let dj = 0; dj < 4; dj++) {
+                        sum += imgPixels[k] + imgPixels[k+1] + imgPixels[k+2];
+                        k += 4;
+                    }
+                    k += stride - 16;
+                }
+                G[8*i + j] = sum / 48;
+            }
+        }
+    }
 
     const hash = new Uint8Array(8);
     const hashGen = bitAppender(hash);
-    let prev = (imgPixels[MC3[63]] + imgPixels[MC3[63]+1]
-                + imgPixels[MC3[63]+2]) / 3;
+    let prev = G[MC3[63]];
     for (const p of MC3) {
-        const curr = (imgPixels[p] + imgPixels[p+1] + imgPixels[p+2]) / 3;
+        const curr = G[p];
         hashGen.next(prev < curr);
         prev = curr;
     }
     return hash.buffer;
+}
+
+/**
+ * Return whether a given number is positive. +0 is treated as an infinitesimal
+ * positive number.
+ *
+ * @param {Number} x A number
+ * @return {Boolean} True if x is greater than 0 or +0
+ */
+function isPositive(x) {
+    return x > 0 || Object.is(x, +0);
 }
 
 /**
@@ -233,7 +278,37 @@ function getDctHash(img) {
             if (i === 10 && j === 5) {
                 continue;
             }
-            hashGen.next(D[i-j][j] >= 0);
+            hashGen.next(isPositive(D[i-j][j]));
+        }
+    }
+    return hash.buffer;
+}
+
+function getWaveletHash(img) {
+    // Populate input matrix
+    const M = new Array(32);
+    {
+        const imgPixels = getImagePixels(img, 32, 32);
+        const M_data = new Float64Array(32*32);
+        let k = 0;  // pixel array offset
+        let o = 0;  // M_data offset
+        for (let r = 0; r < 32; r++) {
+            const M_r = M[r] = M_data.subarray(o, (o+=32));
+            for (let c = 0; c < 32; c++) {
+                M_r[c] = imgPixels[k] + imgPixels[k+1] + imgPixels[k+2] - 384;
+                k += 4;
+            }
+        }
+    }
+    // Compute the discrete wavelet transform
+    dwt(M);
+    // Use sign bits of upper 8x8 submatrix as hash bits
+    const hash = new Uint8Array(8);
+    const hashGen = bitAppender(hash);
+    for (let i = 0; i < 8; i++) {
+        const M_i = M[i];
+        for (let j = 0; j<8; j++) {
+            hashGen.next(isPositive(M_i[j]));
         }
     }
     return hash.buffer;
@@ -255,10 +330,12 @@ function getImageHash(img, hashFunction) {
     }
 
     switch (hashFunction) {
-        case 'diffHash':
+        case HashFunction.DIFFERENCE_HASH:
             return getDiffHash(img);
-        case 'dctHash':
+        case HashFunction.DCT_HASH:
             return getDctHash(img);
+        case HashFunction.WAVELET_HASH:
+            return getWaveletHash(img);
         default:
             throw "Invalid hash function";
     }

@@ -37,13 +37,11 @@ function showGrayscale(img, width, height) {
 
 /** Scale a canvas to a specified size. */
 function scaleCanvas(canvas, width, height) {
-    const scaled = document.createElement('canvas');
-    scaled.width = width;
-    scaled.height = height;
-    const ctx = scaled.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-    return scaled;
+    const img = new Image();
+    img.width = width;
+    img.height = height;
+    img.src = canvas.toDataURL();
+    return img;
 }
 
 /** Convert a buffer to a hex string. */
@@ -156,43 +154,48 @@ function td(element) {
     return wrap(element, 'td');
 }
 
-// 32x32 DCT matrix
-// We normalize the coefficients such that the matrix is orthogonal.
-const DCT = new Array(32);
-{
-    const P_64 = Math.PI / 64;
-    DCT[0] = new Float64Array(32).fill(0.25 * (2**-0.5));
-    for (let r = 1; r < 32; r += 1) {
-        const DCT_r = DCT[r] = new Float64Array(32);
-        const RP_64 = r * P_64;
-        for (let c = 0; c < 32; c += 1) {
-            DCT_r[c] = Math.cos((2*c + 1) * RP_64) * 0.25;
+/** Generate an orthogonal DCT matrix of size N. */
+function dctMatrix(N) {
+    const DCT = new Array(N);
+    const P_N = Math.PI / (2*N);
+    const A = (2/N) ** 0.5;
+    DCT[0] = new Float64Array(N).fill(A / 2**0.5);
+    for (let r = 1; r < N; r += 1) {
+        const DCT_r = DCT[r] = new Float64Array(N);
+        const RP_N = r * P_N;
+        for (let c = 0; c < N; c += 1) {
+            DCT_r[c] = Math.cos((2*c + 1) * RP_N) * A;
         }
     }
+    return DCT;
 }
 
-/** Compute the inverse DCT of a 32x32 matrix. */
-function inverseDct32(Y) {
-    // Compute M'YM, where M is the DCT matrix
-    const YM = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        const YM_r = YM[r] = new Float64Array(32);
+// 32x32 DCT matrix
+// Can increase size for greater smoothing at the cost of speed
+const DCT = dctMatrix(32);
+
+/** Compute the inverse DCT of a matrix. */
+function inverseDct(Y, M) {
+    const N = Y.length;
+    const YM = new Array(N);
+    for (let r = 0; r < N; r++) {
+        const YM_r = YM[r] = new Float64Array(N);
         const Y_r = Y[r];
-        for (let c = 0; c < 32; c++) {
+        for (let c = 0; c < N; c++) {
             let s = 0;
-            for (let i = 0; i < 32; i++) {
-                s += Y_r[i] * DCT[i][c];
+            for (let i = 0; i < N; i++) {
+                s += Y_r[i] * M[i][c];
             }
             YM_r[c] = s;
         }
     }
-    const X = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        const X_r = X[r] = new Float64Array(32);
-        for (let c = 0; c < 32; c++) {
+    const X = new Array(N);
+    for (let r = 0; r < N; r++) {
+        const X_r = X[r] = new Float64Array(N);
+        for (let c = 0; c < N; c++) {
             let s = 0;
-            for (let i = 0; i < 32; i++) {
-                s += DCT[i][r] * YM[i][c];
+            for (let i = 0; i < N; i++) {
+                s += M[i][r] * YM[i][c];
             }
             X_r[c] = s;
         }
@@ -245,11 +248,12 @@ function* hashBits(hash) {
 
 /** Create a visualization of a DCT hash value. */
 function visualizeDctHash(dctHash) {
-    const bitsGen = hashBits(dctHash);
-    const Y = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        Y[r] = new Float64Array(32);
+    const N = DCT.length;
+    const Y = new Array(N);
+    for (let r = 0; r < N; r++) {
+        Y[r] = new Float64Array(N);
     }
+    const bitsGen = hashBits(dctHash);
     for (let i = 1; i <= 10; i++) {
         for (let j = 0; j <= i; j++) {
             if (i === 10 && j === 5) {
@@ -263,8 +267,28 @@ function visualizeDctHash(dctHash) {
             Y[j][i-j] = (bit ? 1 : -1) * Math.exp(-i/3);
         }
     }
-    const X = inverseDct32(Y);
+    const X = inverseDct(Y, DCT);
     return matrixToGrayscale(X);
+}
+
+function visualizeWaveletHash(hash) {
+    const M = new Array(8);
+    const M_data = new Float64Array(8*8);
+    let o = 0;
+    for (let r = 0; r < 8; r++) {
+        M[r] = M_data.subarray(o, o+=8);
+    }
+    const bitsGen = hashBits(hash);
+    for (let i = 0; i < 8; i++) {
+        const M_i = M[i];
+        for (let j = 0; j < 8; j++) {
+            const x = [1, 0.5, 0.25, 0.25,
+                       0.125, 0.125, 0.125, 0.125][Math.max(i, j)];
+            M_i[j] = bitsGen.next().value ? x : -x;
+        }
+    }
+    idwt(M);
+    return matrixToGrayscale(M);
 }
 
 /** Main entry point for the demo. */
@@ -285,23 +309,26 @@ function main() {
             img.height = Math.floor(img.height * r);
         }
         const tr = document.createElement('tr');
+        const hashes = {};
+        trMap.set(tr, hashes);
 
         // Scaled image
         tr.append(td(img));
 
+        // DCT hash
+        const dctHash = hashes.dctHash =
+            getImageHash(img, HashFunction.DCT_HASH);
+        tr.append(td(hashDiv(dctHash, compare?.dctHash)));
+
         // Difference hash
-        tr.append(td(scaleCanvas(showGrayscale(img, 8, 8), 32, 32)));
-        const diffHash = getImageHash(img, 'diffHash');
+        const diffHash = hashes.diffHash =
+            getImageHash(img, HashFunction.DIFFERENCE_HASH);
         tr.append(td(hashDiv(diffHash, compare?.diffHash)));
 
-        // DCT hash
-        tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
-        const dctHash = getImageHash(img, 'dctHash');
-        tr.append(td(hashDiv(dctHash, compare?.dctHash)));
-        tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
-
-        const hashes = { diffHash: diffHash, dctHash: dctHash };
-        trMap.set(tr, hashes);
+        // Wavelet hash
+        const waveletHash = hashes.waveletHash =
+            getImageHash(img, HashFunction.WAVELET_HASH);
+        tr.append(td(hashDiv(waveletHash, compare?.waveletHash)));
 
         // Radio button for comparison
         const radio = document.createElement('input');
@@ -312,6 +339,11 @@ function main() {
             recomputeComparisons();
         });
         tr.append(td(radio));
+
+        // Visualizations
+        tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
+        tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
+        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash), 32, 32)));
 
         const remove = document.createElement('button');
         remove.textContent = '\u2715';
@@ -336,13 +368,16 @@ function main() {
 
         if (compare === hashes) {
             // Primary row
+            tr.children[1].replaceWith(td(hashDiv(hashes.dctHash)));
             tr.children[2].replaceWith(td(hashDiv(hashes.diffHash)));
-            tr.children[4].replaceWith(td(hashDiv(hashes.dctHash)));
+            tr.children[3].replaceWith(td(hashDiv(hashes.waveletHash)));
         } else {
+            tr.children[1].replaceWith(
+                td(hashDiv(hashes.dctHash, compare?.dctHash)));
             tr.children[2].replaceWith(
                 td(hashDiv(hashes.diffHash, compare?.diffHash)));
-            tr.children[4].replaceWith(
-                td(hashDiv(hashes.dctHash, compare?.dctHash)));
+            tr.children[3].replaceWith(
+                td(hashDiv(hashes.waveletHash, compare?.waveletHash)));
         }
     }
 
@@ -374,7 +409,7 @@ function main() {
 
     /** Add example image. */
     function loadExample() {
-        loadImage('gaugin.jpg').then(processImage)
+        return loadImage('gaugin.jpg').then(processImage)
             .catch((error) => console.warn(error));
     }
 
@@ -393,9 +428,8 @@ function main() {
 
     document.getElementById('reset').addEventListener('click', reset);
 
-    loadExample();
     // If user reloads the page there may be files already selected
-    handleFiles();
+    loadExample().then(handleFiles);
 }
 
 document.addEventListener("DOMContentLoaded", main);
