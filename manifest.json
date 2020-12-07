@@ -2,7 +2,7 @@
   "manifest_version": 2,
 
   "name": "Reddit Deduplicator",
-  "version": "1.1",
+  "version": "1.2",
 
   "author": "Nicholas Gaya",
   "description": "Hide duplicate posts on pre-redesign Reddit.",
