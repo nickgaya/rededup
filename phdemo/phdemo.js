@@ -154,43 +154,48 @@ function td(element) {
     return wrap(element, 'td');
 }
 
-// 32x32 DCT matrix
-// We normalize the coefficients such that the matrix is orthogonal.
-const DCT = new Array(32);
-{
-    const P_64 = Math.PI / 64;
-    DCT[0] = new Float64Array(32).fill(0.25 * (2**-0.5));
-    for (let r = 1; r < 32; r += 1) {
-        const DCT_r = DCT[r] = new Float64Array(32);
-        const RP_64 = r * P_64;
-        for (let c = 0; c < 32; c += 1) {
-            DCT_r[c] = Math.cos((2*c + 1) * RP_64) * 0.25;
+/** Generate an orthogonal DCT matrix of size N. */
+function dctMatrix(N) {
+    const DCT = new Array(N);
+    const P_N = Math.PI / (2*N);
+    const A = (2/N) ** 0.5;
+    DCT[0] = new Float64Array(N).fill(A / 2**0.5);
+    for (let r = 1; r < N; r += 1) {
+        const DCT_r = DCT[r] = new Float64Array(N);
+        const RP_N = r * P_N;
+        for (let c = 0; c < N; c += 1) {
+            DCT_r[c] = Math.cos((2*c + 1) * RP_N) * A;
         }
     }
+    return DCT;
 }
 
-/** Compute the inverse DCT of a 32x32 matrix. */
-function inverseDct32(Y) {
-    // Compute M'YM, where M is the DCT matrix
-    const YM = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        const YM_r = YM[r] = new Float64Array(32);
+// 32x32 DCT matrix
+// Can increase size for greater smoothing at the cost of speed
+const DCT = dctMatrix(32);
+
+/** Compute the inverse DCT of a matrix. */
+function inverseDct(Y, M) {
+    const N = Y.length;
+    const YM = new Array(N);
+    for (let r = 0; r < N; r++) {
+        const YM_r = YM[r] = new Float64Array(N);
         const Y_r = Y[r];
-        for (let c = 0; c < 32; c++) {
+        for (let c = 0; c < N; c++) {
             let s = 0;
-            for (let i = 0; i < 32; i++) {
-                s += Y_r[i] * DCT[i][c];
+            for (let i = 0; i < N; i++) {
+                s += Y_r[i] * M[i][c];
             }
             YM_r[c] = s;
         }
     }
-    const X = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        const X_r = X[r] = new Float64Array(32);
-        for (let c = 0; c < 32; c++) {
+    const X = new Array(N);
+    for (let r = 0; r < N; r++) {
+        const X_r = X[r] = new Float64Array(N);
+        for (let c = 0; c < N; c++) {
             let s = 0;
-            for (let i = 0; i < 32; i++) {
-                s += DCT[i][r] * YM[i][c];
+            for (let i = 0; i < N; i++) {
+                s += M[i][r] * YM[i][c];
             }
             X_r[c] = s;
         }
@@ -243,11 +248,12 @@ function* hashBits(hash) {
 
 /** Create a visualization of a DCT hash value. */
 function visualizeDctHash(dctHash) {
-    const bitsGen = hashBits(dctHash);
-    const Y = new Array(32);
-    for (let r = 0; r < 32; r++) {
-        Y[r] = new Float64Array(32);
+    const N = DCT.length;
+    const Y = new Array(N);
+    for (let r = 0; r < N; r++) {
+        Y[r] = new Float64Array(N);
     }
+    const bitsGen = hashBits(dctHash);
     for (let i = 1; i <= 10; i++) {
         for (let j = 0; j <= i; j++) {
             if (i === 10 && j === 5) {
@@ -261,7 +267,7 @@ function visualizeDctHash(dctHash) {
             Y[j][i-j] = (bit ? 1 : -1) * Math.exp(-i/3);
         }
     }
-    const X = inverseDct32(Y);
+    const X = inverseDct(Y, DCT);
     return matrixToGrayscale(X);
 }
 
