@@ -343,8 +343,7 @@ function main() {
         // Visualizations
         tr.append(td(scaleCanvas(showGrayscale(img, 32, 32), 128, 128)));
         tr.append(td(scaleCanvas(visualizeDctHash(dctHash), 128, 128)));
-        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash),
-                                 128, 128)));
+        tr.append(td(scaleCanvas(visualizeWaveletHash(waveletHash), 32, 32)));
 
         const remove = document.createElement('button');
         remove.textContent = '\u2715';

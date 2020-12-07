@@ -65,12 +65,12 @@ functions:
   transformed matrix as the bits of the hash.
 
   Using the fast wavelet transform algorithm, this hash is relatively fast to
-  compute and improves on the difference hash by balancing local and global
-  pixel comparisons. As with the DCT hash, it is possible to reconstruct
-  something resembling the original image from the hash bits, although at a
-  very low resolution.
+  compute and improves on the difference hash by representing the gradient at
+  different scales rather than purely locally. As with the DCT hash, it is
+  possible to reconstruct something resembling the original image from the hash
+  bits, although at a very low resolution.
 
-    | <img src="images/gaugin1_original.png" width="105" height="128" /> | <img src="images/gaugin3_dwt.png" width="105" height="128" /> |
+    | <img src="images/gaugin1_original.png" width="26" height="32" /> | <img src="images/gaugin3_dwt.png" width="26" height="32" /> |
     | :---: | :---: |
     | *Original* | *Wavelet hash <br /> visualization* |
 
