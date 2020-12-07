@@ -31,7 +31,7 @@ posts from similar subreddits.
 To detect duplicate thumbnails, the extension uses a perceptual hash algorithm
 to reduce each image to a 64-bit hash. Ideally, a perceptual hash algorithm
 should be insensitive to minor changes in an image — visually similar images
-should have similar hash values. This extension offers two alternative hash
+should have similar hash values. This extension implements three different hash
 functions:
 
 * **DCT Hash**: Scale the image to 32x32 and compute the direct cosine transform
@@ -86,7 +86,7 @@ data structure adapted to discrete metric spaces such as Hamming space.
 
 ## Known limitations
 
-* **Crop sensitivity** For both image hash algorithms currently supported,
+* **Crop sensitivity** For all currently supported image hash algorithms,
   cropping an image can radically change its hash value, which can cause the
   extension not to detect near-duplicates with slight framing differences.
 
