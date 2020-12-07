@@ -404,7 +404,7 @@ function main() {
 
     /** Add example image. */
     function loadExample() {
-        loadImage('gaugin.jpg').then(processImage)
+        return loadImage('gaugin.jpg').then(processImage)
             .catch((error) => console.warn(error));
     }
 
@@ -423,9 +423,8 @@ function main() {
 
     document.getElementById('reset').addEventListener('click', reset);
 
-    loadExample();
     // If user reloads the page there may be files already selected
-    handleFiles();
+    loadExample().then(handleFiles);
 }
 
 document.addEventListener("DOMContentLoaded", main);
