@@ -183,18 +183,40 @@ function getDiffHash(img) {
     // comment by user "AlexHackerFactor".
     if (!getDiffHash._MC3) {
         getDiffHash._MC3 = Array.from(
-            mooreCurve(3), (p) => (p[0] + (8*p[1])) * 4);
+            mooreCurve(3), (p) => p[0] + (8*p[1]));
     }
     const MC3 = getDiffHash._MC3;
 
-    const imgPixels = getImagePixels(img, 8, 8);
+    // Use a canvas to scale the image to 32x32, then manually downsample to
+    // 8x8 by averaging. This is intended to reduce the effect of cross-browser
+    // differences in image scaling behavior.
+    const G = new Float64Array(64);
+    {
+        const imgPixels = getImagePixels(img, 32, 32);
+        const stride = 32 * 4;
+        for (let i = 0; i < 8; i++) {
+            const i4 = i*4;
+            for (let j = 0; j < 8; j++) {
+                const j4 = j*4;
+                let sum = 0;
+                let k = i4*stride + j4;
+                for (let di = 0; di < 4; di++) {
+                    for (let dj = 0; dj < 4; dj++) {
+                        sum += imgPixels[k] + imgPixels[k+1] + imgPixels[k+2];
+                        k += 4;
+                    }
+                    k += stride - 16;
+                }
+                G[8*i + j] = sum / 48;
+            }
+        }
+    }
 
     const hash = new Uint8Array(8);
     const hashGen = bitAppender(hash);
-    let prev = (imgPixels[MC3[63]] + imgPixels[MC3[63]+1]
-                + imgPixels[MC3[63]+2]) / 3;
+    let prev = G[MC3[63]];
     for (const p of MC3) {
-        const curr = (imgPixels[p] + imgPixels[p+1] + imgPixels[p+2]) / 3;
+        const curr = G[p];
         hashGen.next(prev < curr);
         prev = curr;
     }

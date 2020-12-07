@@ -5,6 +5,7 @@
 - Single source of truth for default settings
 - Add support for search pages
 - Implement wavelet hash algorithm
+- Add scaling step in difference hash implementation
 - Minor fixes/improvements
 
 ## Version 1.0
