@@ -46,13 +46,11 @@ const PageType = Object.freeze({
 function getLinks() {
     // See https://www.reddit.com/r/csshelp/wiki/selectors
     if (!document.body.classList.length) {
-        return {pageType: "New Reddit"};
-    } else if (document.body.classList.contains('other-discussions-page')) {
-        // The other discussion page shows posts with the same URL as a given
-        // post. We don't want to check for duplicates in this view.
-        return {pageType: "Other Discussions page"};
+        // New Reddit, interstitial page, etc.
+        return {pageType: "no body class"};
     } else if (document.body.classList.contains('single-page')) {
         // No need to check for duplicates when viewing a single post.
+        // This also covers "other discussions" pages.
         return {pageType: "single page"};
     } else if (document.body.classList.contains('listing-page')) {
         // Subreddit or user profile page
@@ -135,7 +133,7 @@ async function getLinkInfo(thing, pageType, settings) {
             }
             break;
         default:
-            throw "Invalid link type";
+            throw "Invalid page type";
     }
 
 

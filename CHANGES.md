@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.2
+
+- Minor fixes/improvements
+
 ## Version 1.1
 
 - Single source of truth for default settings
