@@ -160,103 +160,10 @@ async function getLinkInfo(thing, pageType, settings) {
 }
 
 /**
- * Symbol for recording the original position of a link on the page. This is
- * used to keep links in order when combining duplicates.
+ * Empty <div class="clearleft"></div> element.
  *
- * @constant {Symbol}
+ * @constant {Element}
  */
-const indexSymbol = Symbol('index');
-
-
-/**
- * Information about a link with duplicates.
- *
- * @typedef {Object} DupRecord
- * @property {Element} thing - Primary link
- * @property {Number} index - Index of primary link
- * @property {Element[]} duplicates - Duplicate links
- * @property {Boolean} showDuplicates - Whether to show or hide duplicate links
- * @property {Element} taglineElt - Element within the primary link tagline
- *    containing the duplicate count and visibility toggle
- * @property {Element} countElt - Element for displaying the duplicate count
- * @property {Element} linkElt - Element for toggling duplicate visibility
- */
-
-/**
- * Create a new duplicate record.
- *
- * @param {Element} thing Primary link element
- * @return {DupRecord} A new duplicate record, initially with no duplicates.
- */
-function newDupRecord(thing) {
-    return {
-        thing: thing,
-        index: thing[indexSymbol],
-        duplicates: [],
-        showDuplicates: false,
-    };
-}
-
-/**
- * Merge duplicates from two duplicate records.
- *
- * @param {Element[]} duplicates First record duplicates
- * @param {Element} otherThing Primary link of second record
- * @param {Element[]} otherDuplicates Second record duplicates
- * @yields {Element} The given elements in order.
- */
-function* mergeDuplicates(duplicates, otherThing, otherDuplicates) {
-    let x = duplicates[0];
-    let nx = 1;
-    let y = otherThing;
-    let ny = 0;
-    while (x && y) {
-        if (x[indexSymbol] < y[indexSymbol]) {
-            yield x;
-            x = duplicates[nx++];
-        } else {
-            yield y;
-            y = otherDuplicates[ny++];
-        }
-    }
-    while (x) {
-        yield x;
-        x = duplicates[nx++];
-    }
-    while (y) {
-        yield y;
-        y = otherDuplicates[ny++];
-    }
-}
-
-/**
- * Add elements to a post's tagline and update the duplicate record.
- *
- * @param {DupRecord} dupRecord Information about the link
- * @param {String} pageType Page type
- */
-function initTagline(dupRecord, pageType) {
-    dupRecord.countElt = document.createElement('span');
-    dupRecord.countElt.textContent = '0 duplicates';
-    dupRecord.linkElt = document.createElement('a');
-    dupRecord.linkElt.textContent = dupRecord.showDuplicates ? 'hide' : 'show';
-    dupRecord.linkElt.href = '#';
-    dupRecord.linkElt.onclick = (() => {
-        dupRecord.showDuplicates = !dupRecord.showDuplicates;
-        dupRecord.linkElt.textContent =
-            dupRecord.showDuplicates ? 'hide' : 'show';
-        for (const thing of dupRecord.duplicates) {
-            thing.style.display = dupRecord.showDuplicates ? '' : 'none';
-        }
-        return false;
-    });
-    dupRecord.taglineElt = document.createElement('span');
-    dupRecord.taglineElt.append(
-        ' (', dupRecord.countElt, ' — ', dupRecord.linkElt, ')');
-    const tagline = getTagline(dupRecord.thing, pageType);
-    tagline.append(dupRecord.taglineElt);
-}
-
 const clearleftDiv = document.createElement('div');
 clearleftDiv.className = 'clearleft';
 
@@ -281,6 +188,14 @@ function moveThingAfter(thing, otherThing) {
 }
 
 /**
+ * Symbol for recording the original position of a link on the page. This is
+ * used to keep links in order when combining duplicates.
+ *
+ * @constant {Symbol}
+ */
+const indexSymbol = Symbol('index');
+
+/**
  * Stats object.
  *
  * @typedef {Object} Stats
@@ -289,114 +204,194 @@ function moveThingAfter(thing, otherThing) {
  */
 
 /**
- * Merge a duplicate record into an existing record.
+ * Information about a link with duplicates.
  *
- * @param {DupRecord} dupRecord Duplicate record to update
- * @param {DupRecord} otherRecord Duplicate record to merge
- * @param {String} pageType Page type
- * @param {Stats} stats Stats object
+ * @property {Element} thing - Primary link
+ * @property {Number} index - Index of primary link
+ * @property {Element[]} duplicates - Duplicate links
+ * @property {Boolean} showDuplicates - Whether to show or hide duplicate links
+ * @property {Element} taglineElt - Element within the primary link tagline
+ *    containing the duplicate count and visibility toggle
+ * @property {Element} countElt - Element for displaying the duplicate count
+ * @property {Element} linkElt - Element for toggling duplicate visibility
  */
-function mergeDupRecords(dupRecord, otherRecord, pageType, stats) {
-    // Update stats
-    if (!dupRecord.duplicates.length) {
-        stats.numWithDups += 1;
+class DupRecord {
+    /**
+     * Create a new duplicate record.
+     *
+     * @param {Element} thing Primary link element
+     * @return {DupRecord} A new duplicate record, initially with no duplicates.
+     */
+    constructor(thing) {
+        this.thing = thing;
+        this.index = thing[indexSymbol];
+        this.duplicates = [];
+        this.showDuplicates = false;
     }
-    if (otherRecord.duplicates.length) {
-        stats.numWithDups -= 1;
-    }
-    stats.totalDups += 1;
 
-    // Merge duplicate lists
-    const duplicates = new Array(dupRecord.duplicates.length
-                                 + otherRecord.duplicates.length + 1);
-    let i = 0;
-    let prev = dupRecord.thing;
-    for (const dup of mergeDuplicates(dupRecord.duplicates, otherRecord.thing,
-                                      otherRecord.duplicates)) {
-        // Update display CSS property
-        dup.style.display = dupRecord.showDuplicates ? '' : 'none';
-        // Reorder duplicate to come after preceding duplicate or primary
-        moveThingAfter(prev, dup);
-        // Add duplicate to new array
-        duplicates[i++] = dup;
-        prev = dup;
+    /**
+     * Merge duplicates from two duplicate records.
+     *
+     * @param {Element[]} duplicates First record duplicates
+     * @param {Element} otherThing Primary link of second record
+     * @param {Element[]} otherDuplicates Second record duplicates
+     * @yields {Element} The given elements in index order.
+     */
+    static *mergeDupLists(duplicates, otherThing, otherDuplicates) {
+        let x = duplicates[0];
+        let nx = 1;
+        let y = otherThing;
+        let ny = 0;
+        while (x && y) {
+            if (x[indexSymbol] < y[indexSymbol]) {
+                yield x;
+                x = duplicates[nx++];
+            } else {
+                yield y;
+                y = otherDuplicates[ny++];
+            }
+        }
+        while (x) {
+            yield x;
+            x = duplicates[nx++];
+        }
+        while (y) {
+            yield y;
+            y = otherDuplicates[ny++];
+        }
     }
-    dupRecord.duplicates = duplicates;
 
-    // Update primary link tagline
-    if (!dupRecord.taglineElt) {
-        initTagline(dupRecord, pageType);
+    /**
+     * Add elements to a post's tagline and update the duplicate record.
+     *
+     * @param {DupRecord} dupRecord Information about the link
+     * @param {String} pageType Page type
+     */
+    initTagline(pageType) {
+        this.countElt = document.createElement('span');
+        this.countElt.textContent = '0 duplicates';
+        this.linkElt = document.createElement('a');
+        this.linkElt.textContent = this.showDuplicates ? 'hide' : 'show';
+        this.linkElt.href = '#';
+        const dupRecord = this;
+        this.linkElt.onclick = (() => {
+            dupRecord.showDuplicates = !dupRecord.showDuplicates;
+            dupRecord.linkElt.textContent =
+                dupRecord.showDuplicates ? 'hide' : 'show';
+            for (const thing of dupRecord.duplicates) {
+                thing.style.display = dupRecord.showDuplicates ? '' : 'none';
+            }
+            return false;
+        });
+        this.taglineElt = document.createElement('span');
+        this.taglineElt.append(' (', this.countElt, ' — ', this.linkElt, ')');
+        const tagline = getTagline(this.thing, pageType);
+        tagline.append(this.taglineElt);
     }
-    const s = duplicates.length > 1 ? 's' : '';
-    dupRecord.countElt.textContent =
-        `${duplicates.length} duplicate${s}`;
 
-    // Clean up other tagline
-    if (otherRecord.taglineElt) {
-        otherRecord.taglineElt.remove();
-        delete otherRecord.taglineElt;
-        delete otherRecord.countElt;
-        delete otherRecord.linkElt;
+    /**
+     * Merge another duplicate record into this.
+     *
+     * @param {DupRecord} other Record to merge
+     * @param pageType Page type
+     * @param {Stats} stats Stats object
+     */
+    merge(other, pageType, stats) {
+        // Update stats
+        if (!this.duplicates.length) {
+            stats.numWithDups += 1;
+        }
+        if (other.duplicates.length) {
+            stats.numWithDups -= 1;
+        }
+        stats.totalDups += 1;
+
+        // Merge duplicate lists
+        const duplicates = new Array(
+            this.duplicates.length + other.duplicates.length + 1);
+        let i = 0;
+        let prev = this.thing;
+        for (const dup of DupRecord.mergeDupLists(
+                this.duplicates, other.thing, other.duplicates)) {
+            // Update display CSS property
+            dup.style.display = this.showDuplicates ? '' : 'none';
+            // Reorder duplicate to come after preceding duplicate or primary
+            moveThingAfter(prev, dup);
+            // Add duplicate to new array
+            duplicates[i++] = dup;
+            prev = dup;
+        }
+        this.duplicates = duplicates;
+
+        // Update primary link tagline
+        if (!this.taglineElt) {
+            this.initTagline(pageType);
+        }
+        const s = duplicates.length > 1 ? 's' : '';
+        this.countElt.textContent =
+            `${duplicates.length} duplicate${s}`;
+
+        // Clean up other tagline
+        if (other.taglineElt) {
+            other.taglineElt.remove();
+            delete other.taglineElt;
+            delete other.countElt;
+            delete other.linkElt;
+        }
     }
 }
 
 /**
- * Disjoint-set node.
- * @typedef {Object} DSNode
+ * A disjoint-set node.
+ *
  * @property {?DSNode} parent - Parent node
  * @property {Number} rank - Node rank
  */
-
-/**
- * Create a new disjoint-set node.
- *
- * @return {DSNode} A new node with rank 0.
- */
-function newDsNode() {
-    return {
-        parent: null,
-        rank: 0,
+class DSNode {
+    /** Create a new disjoint-set node. */
+    constructor() {
+        this.parent = null;
+        this.rank = 0;
     }
-}
 
-/**
- * Find the representative of a disjoint-set node.
- *
- * @param {DSNode} node A node
- * @return {DSNode} The given node's representative.
- */
-function dsFind(node) {
-    while (node.parent) {
-        const parent = node.parent;
-        node.parent = parent.parent || parent;
-        node = parent;
-    }
-    return node;
-}
-
-/**
- * Merge two disjoint-set nodes into the same tree.
- *
- * @param {DSNode} node A node
- * @param {DSNode} other Another node
- * @param {DSNode} The representative after merging.
- */
-function dsUnion(node, other) {
-    node = dsFind(node);
-    other = dsFind(other);
-    if (node === other) {
+    /**
+     * Find the representative of a disjoint-set node.
+     *
+     * @return {DSNode} The representative for this node.
+     */
+    find() {
+        let node = this;
+        while (node.parent) {
+            const parent = node.parent;
+            node.parent = parent.parent || parent;
+            node = parent;
+        }
         return node;
     }
-    if (node.rank < other.rank) {
-        const tmp = node;
-        node = other;
-        other = tmp;
+
+    /**
+     * Merge two disjoint-set nodes into the same tree.
+     *
+     * @param {DSNode} other A node to merge with this node
+     * @return {DSNode} The representative after merging.
+     */
+    union(other) {
+        let node = this.find();
+        other = other.find();
+        if (node === other) {
+            return node;
+        }
+        if (node.rank < other.rank) {
+            const tmp = node;
+            node = other;
+            other = tmp;
+        }
+        other.parent = node;
+        if (node.rank === other.rank) {
+            node.rank += 1;
+        }
+        return node;
     }
-    other.parent = node;
-    if (node.rank === other.rank) {
-        node.rank += 1;
-    }
-    return node;
 }
 
 /**
@@ -427,68 +422,67 @@ function hdist(a1, a2) {
  * A BK-tree mapping image hashes to disjoint-set nodes. This implementation is
  * specific to our use-case.
  *
- * @typedef {Object} BKNode
  * @property {Int32Array} key - An image hash as a pair of 32-bit integers
  * @property {DSNode} value - Disjoint-set node for the image hash
- * @property {Map} children - A map from metric values to child nodes.
+ * @property {BKNode[]} children - A sparse array of child nodes, indexed by
+ *     distance.
  */
+class BKNode {
+    /**
+     * Create a new BK-tree node.
+     *
+     * @param {Int32Array} key Node key
+     * @param {DSNode} value Node value
+     */
+    constructor(key, value) {
+        this.key = key;
+        this.value = value;
+        this.children = new Array(65);
+    }
 
-/**
- * Create a new BK-tree node.
- *
- * @param {Int32Array} key Node key
- * @param {DSNode} value Node value
- * @return {BKNode} A new node with the given key and value.
- */
-function bkNew(key, value) {
-    return {
-        key: key,
-        value: value,
-        children: new Map(),
-    };
-}
-
-/**
- * Add a key-value pair in a BK-tree map. If the given key already exists, do
- * nothing.
- *
- * @param {BKNode} bkNode BK-tree node
- * @param {Int32Array} key Map key
- * @param {DSNode} value Map value
- */
-function bkAdd(bkNode, key, value) {
-    while (true) {
-        const dist = hdist(bkNode.key, key);
-        if (dist === 0) {
-            return;
-        } else if (bkNode.children.has(dist)) {
-            bkNode = bkNode.children.get(dist);
-        } else {
-            bkNode.children.set(dist, bkNew(key, value));
-            return;
+    /**
+     * Add a key-value pair in a BK-tree map. If the given key already exists,
+     * do nothing.
+     *
+     * @param {Int32Array} key Map key
+     * @param {DSNode} value Map value
+     */
+    add(key, value) {
+        let bkNode = this;
+        while (true) {
+            const dist = hdist(bkNode.key, key);
+            if (dist === 0) {
+                return;  // Key matches current node, no-op
+            }
+            const child = bkNode.children[dist];
+            if (!child) {
+                bkNode.children[dist] = new BKNode(key, value);
+                return;
+            }
+            bkNode = child;
         }
     }
-}
 
-/**
- * Find all nodes within a given distance for the given key in a BK-tree map.
- *
- * @param {BKNode} bkNode BK-tree node
- * @param {Int32Array} key Map key
- * @param {Number} maxDist Maximum Hamming distance, inclusive.
- * @yields {DSNode} Values for all keys within the given Hamming distance of
- *     the specified key.
- */
-function* bkFind(bkNode, key, maxDist) {
-    const dist = hdist(bkNode.key, key);
-    if (dist <= maxDist) {
-        yield bkNode.value;
-    }
-    const i0 = Math.abs(dist - maxDist);
-    const i1 = Math.min(dist + maxDist, 64);
-    for (let i = i0; i <= i1; i += 1) {
-        if (bkNode.children.has(i)) {
-            yield* bkFind(bkNode.children.get(i), key, maxDist);
+    /**
+     * Find all node values within a given distance for the given key.
+     *
+     * @param {Int32Array} key Map key
+     * @param {Number} maxDist Maximum Hamming distance, inclusive.
+     * @yields {DSNode} Values for all keys within the given Hamming distance
+     *     of the specified key.
+     */
+    *findAll(key, maxDist) {
+        const dist = hdist(this.key, key);
+        if (dist <= maxDist) {
+            yield this.value;
+        }
+        const i0 = Math.abs(dist - maxDist);
+        const i1 = Math.min(dist + maxDist, 64);
+        for (let i = i0; i <= i1; i += 1) {
+            const child = this.children[i];
+            if (child) {
+                yield* child.findAll(key, maxDist);
+            }
         }
     }
 }
@@ -501,13 +495,13 @@ function* bkFind(bkNode, key, maxDist) {
  * @param {String} pageType Page type
  * @param {Stats} stats Stats object
  */
-function mergeDsNodes(node1, node2, pageType, stats) {
-    node1 = dsFind(node1);
-    node2 = dsFind(node2);
+function mergeDuplicates(node1, node2, pageType, stats) {
+    node1 = node1.find();
+    node2 = node2.find();
     if (node1 === node2) {
         return;
     }
-    const newNode = dsUnion(node1, node2);
+    const newNode = node1.union(node2);
 
     let dupRecord = node1.dupRecord;
     let otherRecord = node2.dupRecord;
@@ -516,88 +510,113 @@ function mergeDsNodes(node1, node2, pageType, stats) {
         dupRecord = otherRecord;
         otherRecord = tmp;
     }
-    mergeDupRecords(dupRecord, otherRecord, pageType, stats);
+    dupRecord.merge(otherRecord, pageType, stats);
 
     delete node1.dupRecord;
     delete node2.dupRecord;
     newNode.dupRecord = dupRecord;
 }
 
-/**
- * Update disjoint-set data structure for a given link based on thumbnail hash.
- *
- * @param {Map} thumbDomainMap Domain map
- * @param {LinkInfo} info Link info
- * @param {DSNode} node Disjoint-set node for the link
- * @param {String} pageType Page type
- * @param {Settings} settings User settings
- * @param {Stats} stats Stats object
- */
-function updateThumbMap(thumbDomainMap, info, node, pageType, settings,
-                        stats) {
-    const domainKey = settings.partitionByDomain ? (info.domain || '') : '';
-    let thumbMap = thumbDomainMap.get(domainKey);
-    if (!thumbMap) {
-        // Set up data structures for new domain
-        thumbMap = new Map();
-        thumbMap.set(bufToString(info.thumbnailHash), node);
-        if (settings.maxHammingDistance > 0) {
-            thumbMap.bkMap = bkNew(new Int32Array(info.thumbnailHash), node);
+/** Class used to find and coalesce duplicate links. */
+class DuplicateFinder {
+
+    /**
+     * @param {String} pageType Page type
+     * @param {Settings} settings User settings
+     */
+    constructor(pageType, settings) {
+        this.pageType = pageType;
+        this.urlMap = new Map();
+        this.deduplicateThumbs = settings.deduplicateThumbs;
+        if (this.deduplicateThumbs) {
+            this.partitionByDomain = settings.partitionByDomain;
+            if (this.partitionByDomain) {
+                this.thumbDomainMap = new Map();
+            } else {
+                this.thumbMap = new Map();
+            }
+            this.maxHammingDistance = settings.maxHammingDistance;
+            this.useBk = settings.maxHammingDistance > 0;
         }
-        thumbDomainMap.set(domainKey, thumbMap);
-        return;
     }
 
-    const hashStr = bufToString(info.thumbnailHash);
-    if (thumbMap.has(hashStr)) {
-        // Exact hash match, merge with existing node.
-        mergeDsNodes(thumbMap.get(hashStr), node, pageType, stats);
-        return;
-    }
-    thumbMap.set(hashStr, node);
-
-    if (settings.maxHammingDistance > 0) {
-        const bkMapKey = new Int32Array(info.thumbnailHash);
-        // Merge with hash values within max radius
-        for (let otherNode of bkFind(thumbMap.bkMap, bkMapKey,
-                                     settings.maxHammingDistance)) {
-            mergeDsNodes(node, otherNode, pageType, stats);
-        }
-        bkAdd(thumbMap.bkMap, bkMapKey, node);
-    }
-}
-
-/**
- * Add a new link to the disjoint-set forest and merge duplicates.
- *
- * @param {LinkInfo} linkInfo Information about a link
- * @param {Map} urlMap Map from URLs to disjoint-set nodes
- * @param {Map} thumbDomainMap Map from domain to thumbnail hash to
- *     disjoint-set nodes.
- * @param {String} pageType Page type
- * @param {Settings} settings User settings
- * @param {Stats} stats Stats object
- */
-function processLink(linkInfo, urlMap, thumbDomainMap, pageType, settings,
-                     stats) {
-    if (!linkInfo) {
-        return;
-    }
-    const node = newDsNode();
-    node.dupRecord = newDupRecord(linkInfo.thing);
-    // Merge by URL
-    if (linkInfo.url) {
-        const url = linkInfo.url;
-        if (urlMap.has(url)) {
-            mergeDsNodes(urlMap.get(url), node, pageType, stats);
+    /**
+     * Get a map from thumbnail hash values to disjoint-set nodes.
+     *
+     * @param {String} domain Link domain
+     * @return {Map} Map of thumbnail hashes for the given domain.
+     */
+    getThumbMap(domain) {
+        if (this.partitionByDomain) {
+            const domainKey = domain || '';
+            let thumbMap = this.thumbDomainMap.get(domainKey);
+            if (!thumbMap) {
+                thumbMap = new Map();
+                this.thumbDomainMap.set(domainKey, thumbMap);
+            }
+            return thumbMap;
         } else {
-            urlMap.set(url, node);
+            return this.thumbMap;
         }
     }
-    // Merge by thumbnail
-    if (settings.deduplicateThumbs && linkInfo.thumbnailHash) {
-        updateThumbMap(thumbDomainMap, linkInfo, node, pageType, settings,
-                       stats);
+
+    /**
+     * Find duplicates for a given link based on thumbnail hash.
+     *
+     * @param {LinkInfo} linkInfo Link info
+     * @param {DSNode} node Disjoint-set node for the link
+     * @param {Stats} stats Stats object
+     */
+    updateThumbMap(linkInfo, node, stats) {
+        const thumbMap = this.getThumbMap(linkInfo.domain);
+        const hashStr = bufToString(linkInfo.thumbnailHash);
+        if (thumbMap.has(hashStr)) {
+            // Exact hash match, merge with existing node.
+            mergeDuplicates(thumbMap.get(hashStr), node, this.pageType, stats);
+            return;
+        }
+        thumbMap.set(hashStr, node);
+        if (this.useBk) {
+            const bkMapKey = new Int32Array(linkInfo.thumbnailHash);
+            if (!thumbMap.bkMap) {
+                thumbMap.bkMap = new BKNode(bkMapKey, node);
+                return;
+            }
+            // Merge with hash values within max radius
+            for (let otherNode of thumbMap.bkMap.findAll(
+                     bkMapKey, this.maxHammingDistance)) {
+                mergeDuplicates(node, otherNode, this.pageType, stats);
+            }
+            thumbMap.bkMap.add(bkMapKey, node);
+        }
+    }
+
+    /**
+     * Add a new link to the disjoint-set forest and merge duplicates.
+     *
+     * @param {LinkInfo} linkInfo Information about a link
+     * @param {Stats} stats Stats object
+     */
+    processLink(linkInfo, stats) {
+        if (!linkInfo) {
+            return;
+        }
+        const node = new DSNode();
+        node.dupRecord = new DupRecord(linkInfo.thing);
+        // Merge by URL
+        if (linkInfo.url) {
+            const urlMap = this.urlMap;
+            const url = linkInfo.url;
+            if (urlMap.has(url)) {
+                mergeDuplicates(urlMap.get(url), node, this.pageType, stats);
+            } else {
+                urlMap.set(url, node);
+            }
+        }
+        // Merge by thumbnail
+        if (this.deduplicateThumbs && linkInfo.thumbnailHash) {
+            this.updateThumbMap(linkInfo, node, stats);
+        }
     }
 }
 
@@ -638,17 +657,16 @@ async function main() {
     console.log("Processing", links.length,
                 (links.length === 1) ? 'link' : 'links', `(${pageType})`);
     const settings = await getSettings();
+    const dupFinder = new DuplicateFinder(pageType, settings);
+    // Get info for all links before merging duplicates
     const linkInfos = await Promise.all(
         Array.from(links, (thing, index) => {
             thing[indexSymbol] = index;
             return getLinkInfo(thing, pageType, settings);
         }));
-    const urlMap = new Map();
-    const thumbDomainMap = new Map();
     const stats = {numWithDups: 0, totalDups: 0};
     for (const linkInfo of linkInfos) {
-        processLink(linkInfo, urlMap, thumbDomainMap, pageType, settings,
-                    stats);
+        dupFinder.processLink(linkInfo, stats);
     }
     logDupInfo(stats, t0);
 }
