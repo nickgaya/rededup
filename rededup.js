@@ -196,19 +196,10 @@ function moveThingAfter(thing, otherThing) {
 const indexSymbol = Symbol('index');
 
 /**
- * Stats object.
- *
- * @typedef {Object} Stats
- * @property {Number} numWithDups - Number of links with at least one duplicate
- * @property {Number} totalDups - Total number of duplicate links
- */
-
-/**
  * Information about a link with duplicates.
  *
- * @property {Element} thing - Primary link
+ * @property {Element[]} links - List of links
  * @property {Number} index - Index of primary link
- * @property {Element[]} duplicates - Duplicate links
  * @property {Boolean} showDuplicates - Whether to show or hide duplicate links
  * @property {Element} taglineElt - Element within the primary link tagline
  *    containing the duplicate count and visibility toggle
@@ -219,46 +210,12 @@ class DupRecord {
     /**
      * Create a new duplicate record.
      *
-     * @param {Element} thing Primary link element
-     * @return {DupRecord} A new duplicate record, initially with no duplicates.
+     * @param {Element} link - Primary link
      */
-    constructor(thing) {
-        this.thing = thing;
-        this.index = thing[indexSymbol];
-        this.duplicates = [];
+    constructor(link) {
+        this.links = [link]
+        this.index = link[indexSymbol];
         this.showDuplicates = false;
-    }
-
-    /**
-     * Merge duplicates from two duplicate records.
-     *
-     * @param {Element[]} duplicates First record duplicates
-     * @param {Element} otherThing Primary link of second record
-     * @param {Element[]} otherDuplicates Second record duplicates
-     * @yields {Element} The given elements in index order.
-     */
-    static *mergeDupLists(duplicates, otherThing, otherDuplicates) {
-        let x = duplicates[0];
-        let nx = 1;
-        let y = otherThing;
-        let ny = 0;
-        while (x && y) {
-            if (x[indexSymbol] < y[indexSymbol]) {
-                yield x;
-                x = duplicates[nx++];
-            } else {
-                yield y;
-                y = otherDuplicates[ny++];
-            }
-        }
-        while (x) {
-            yield x;
-            x = duplicates[nx++];
-        }
-        while (y) {
-            yield y;
-            y = otherDuplicates[ny++];
-        }
     }
 
     /**
@@ -278,66 +235,36 @@ class DupRecord {
             dupRecord.showDuplicates = !dupRecord.showDuplicates;
             dupRecord.linkElt.textContent =
                 dupRecord.showDuplicates ? 'hide' : 'show';
-            for (const thing of dupRecord.duplicates) {
-                thing.style.display = dupRecord.showDuplicates ? '' : 'none';
+            for (let i = 1; i < dupRecord.links.length; i++) {
+                dupRecord.links[i].style.display =
+                    dupRecord.showDuplicates ? '' : 'none';
             }
             return false;
         });
         this.taglineElt = document.createElement('span');
         this.taglineElt.append(' (', this.countElt, ' — ', this.linkElt, ')');
-        const tagline = getTagline(this.thing, pageType);
+        const tagline = getTagline(this.links[0], pageType);
         tagline.append(this.taglineElt);
     }
 
-    /**
-     * Merge another duplicate record into this.
-     *
-     * @param {DupRecord} other Record to merge
-     * @param pageType Page type
-     * @param {Stats} stats Stats object
-     */
-    merge(other, pageType, stats) {
-        // Update stats
-        if (!this.duplicates.length) {
-            stats.numWithDups += 1;
+    updateLinks(links, pageType) {
+        if (links[0] !== this.links[0]) {
+            throw "Primary link mismatch";
         }
-        if (other.duplicates.length) {
-            stats.numWithDups -= 1;
+        this.links = links;
+        let prev = links[0];
+        for (let i = 1; i < links.length; i++) {
+            const link = links[i];
+            link.style.display = this.showDuplicates ? '' : 'none';
+            moveThingAfter(prev, link);
+            prev = link;
         }
-        stats.totalDups += 1;
-
-        // Merge duplicate lists
-        const duplicates = new Array(
-            this.duplicates.length + other.duplicates.length + 1);
-        let i = 0;
-        let prev = this.thing;
-        for (const dup of DupRecord.mergeDupLists(
-                this.duplicates, other.thing, other.duplicates)) {
-            // Update display CSS property
-            dup.style.display = this.showDuplicates ? '' : 'none';
-            // Reorder duplicate to come after preceding duplicate or primary
-            moveThingAfter(prev, dup);
-            // Add duplicate to new array
-            duplicates[i++] = dup;
-            prev = dup;
-        }
-        this.duplicates = duplicates;
-
-        // Update primary link tagline
         if (!this.taglineElt) {
             this.initTagline(pageType);
         }
-        const s = duplicates.length > 1 ? 's' : '';
-        this.countElt.textContent =
-            `${duplicates.length} duplicate${s}`;
-
-        // Clean up other tagline
-        if (other.taglineElt) {
-            other.taglineElt.remove();
-            delete other.taglineElt;
-            delete other.countElt;
-            delete other.linkElt;
-        }
+        const numDuplicates = links.length - 1;
+        const s = numDuplicates === 1 ? '' : 's';
+        this.countElt.textContent = `${numDuplicates} duplicate${s}`;
     }
 }
 
@@ -488,34 +415,123 @@ class BKNode {
 }
 
 /**
- * Unify disjoint-set nodes and update the associated duplicate records.
+ * Recursively flatten an array that may contain other arrays.
  *
- * @param {DSNode} A disjoint-set node
- * @param {DSNode} Another disjoint-set node
- * @param {String} pageType Page type
- * @param {Stats} stats Stats object
+ * @param arr An array
+ * @yield The items of the array and any nested arrays
  */
-function mergeDuplicates(node1, node2, pageType, stats) {
-    node1 = node1.find();
-    node2 = node2.find();
-    if (node1 === node2) {
-        return;
+function* flatten(arr) {
+    for (const item of arr) {
+        if (Array.isArray(item)) {
+            yield* flatten(item);
+        } else {
+            yield item;
+        }
     }
-    const newNode = node1.union(node2);
-
-    let dupRecord = node1.dupRecord;
-    let otherRecord = node2.dupRecord;
-    if (otherRecord.index < dupRecord.index) {
-        const tmp = dupRecord;
-        dupRecord = otherRecord;
-        otherRecord = tmp;
-    }
-    dupRecord.merge(otherRecord, pageType, stats);
-
-    delete node1.dupRecord;
-    delete node2.dupRecord;
-    newNode.dupRecord = dupRecord;
 }
+
+/**
+ * Merge a pair of sorted arrays.
+ *
+ * @param {Array} l1 First array
+ * @param {Array} l2 Second array
+ * @param compareFunction Sort comparison function
+ * @return {Array} The merged array.
+ */
+function merge2(l1, l2, compareFunction) {
+    const len1 = l1.length;
+    const len2 = l2.length;
+    const result = new Array(len1 + len2);
+    let i = 0;
+    let j = 0;
+    let k = 0;
+    let l1_i = l1[i];
+    let l2_j = l2[j];
+    while (i < len1 && j < len2) {
+        if (compareFunction(l1_i, l2_j) <= 0) {
+            result[k++] = l1_i;
+            l1_i = l1[++i];
+        } else {
+            result[k++] = l2_j;
+            l2_j = l2[++j];
+        }
+    }
+    while (i < len1) {
+        result[k++] = l1[i++];
+    }
+    while (j < len2) {
+        result[k++] = l2[j++];
+    }
+    return result;
+}
+
+/**
+ * Perform a k-way merge of sorted arrays.
+ *
+ * @param {Array} A List of sorted lists to merge
+ * @param compareFunction Sort comparison function
+ * @return {Array} The merged array.
+ */
+function mergeK(A, compareFunction) {
+    // Iteratively merge the two shortest lists
+    // Worst-case O(n log k), but can be O(n + k log k)
+    A.sort((l1, l2) => l1.length - l2.length);
+    const A_len = A.length;
+    const B_len = A_len - 1;
+    const B = new Array(B_len);
+    let i = 0;
+    let j = 0;
+    for (let k = 0; k < B_len; k++) {
+        let l1;
+        if (j === k) {
+            l1 = A[i++];
+        } else if(i === A_len) {
+            l1 = B[j];
+            delete B[j];
+            j++;
+        } else if (A[i].length <= B[j].length) {
+            l1 = A[i++];
+        } else {
+            l1 = B[j];
+            delete B[j];
+            j++;
+        }
+        let l2;
+        if (j === k) {
+            l2 = A[i++];
+        } else if(i === A_len) {
+            l2 = B[j];
+            delete B[j];
+            j++;
+        } else if (A[i].length <= B[j].length) {
+            l2 = A[i++];
+        } else {
+            l2 = B[j];
+            delete B[j];
+            j++;
+        }
+        B[k] = merge2(l1, l2, compareFunction);
+    }
+    return B[B_len-1];
+}
+
+/**
+ * Function to compare two links by index
+ * @param {Element} link1 First link
+ * @param {Element} link2 Second link
+ * @return {Number} A number indicating the relative order of the two links.
+ */
+function linkIndexComparator(link1, link2) {
+    return link1[indexSymbol] - link2[indexSymbol];
+}
+
+/**
+ * Stats object.
+ *
+ * @typedef {Object} Stats
+ * @property {Number} numWithDups - Number of links with at least one duplicate
+ * @property {Number} totalDups - Total number of duplicate links
+ */
 
 /** Class used to find and coalesce duplicate links. */
 class DuplicateFinder {
@@ -537,6 +553,51 @@ class DuplicateFinder {
             }
             this.maxHammingDistance = settings.maxHammingDistance;
             this.useBk = settings.maxHammingDistance > 0;
+        }
+    }
+
+    /**
+     * Unify disjoint-set nodes and track which dupRecords need to be merged.
+     *
+     * @param {DSNode} A disjoint-set node
+     * @param {DSNode} Another disjoint-set node
+     * @param {Set<DSNode>} merged Set of merged nodes to update
+     */
+    mergeDsNodes(node1, node2, merged) {
+        node1 = node1.find();
+        node2 = node2.find();
+        if (node1 === node2) {
+            return;  // No-op, nodes already merged
+        }
+        const newNode = node1.union(node2);
+
+        const dupRecord1 = node1.dupRecord;
+        const dupRecord2 = node2.dupRecord;
+        delete node1.dupRecord;
+        delete node2.dupRecord;
+        // Set value to a list for now, will merge later
+        newNode.dupRecord = [dupRecord1, dupRecord2];
+
+        // Update merged set
+        merged.delete(node1);
+        merged.delete(node2);
+        merged.add(newNode);
+    }
+
+    /**
+     * Find duplicates for a given link based on the URL.
+     *
+     * @param {LinkInfo} linkInfo Link info
+     * @param {DSNode} node Disjoint-set node for the link
+     * @param {Set<DSNode>} merged Set of merged nodes to update
+     */
+    updateUrlMap(linkInfo, node, merged) {
+        const urlMap = this.urlMap;
+        const url = linkInfo.url;
+        if (urlMap.has(url)) {
+            this.mergeDsNodes(urlMap.get(url), node, merged);
+        } else {
+            urlMap.set(url, node);
         }
     }
 
@@ -565,14 +626,14 @@ class DuplicateFinder {
      *
      * @param {LinkInfo} linkInfo Link info
      * @param {DSNode} node Disjoint-set node for the link
-     * @param {Stats} stats Stats object
+     * @param {Set<DSNode>} merged Set of merged nodes to update
      */
-    updateThumbMap(linkInfo, node, stats) {
+    updateThumbMap(linkInfo, node, merged) {
         const thumbMap = this.getThumbMap(linkInfo.domain);
         const hashStr = bufToString(linkInfo.thumbnailHash);
         if (thumbMap.has(hashStr)) {
             // Exact hash match, merge with existing node.
-            mergeDuplicates(thumbMap.get(hashStr), node, this.pageType, stats);
+            this.mergeDsNodes(thumbMap.get(hashStr), node, merged);
             return;
         }
         thumbMap.set(hashStr, node);
@@ -585,19 +646,19 @@ class DuplicateFinder {
             // Merge with hash values within max radius
             for (let otherNode of thumbMap.bkMap.findAll(
                      bkMapKey, this.maxHammingDistance)) {
-                mergeDuplicates(node, otherNode, this.pageType, stats);
+                this.mergeDsNodes(node, otherNode, merged);
             }
             thumbMap.bkMap.add(bkMapKey, node);
         }
     }
 
     /**
-     * Add a new link to the disjoint-set forest and merge duplicates.
+     * Add a new link to the disjoint-set forest and update merge information.
      *
      * @param {LinkInfo} linkInfo Information about a link
-     * @param {Stats} stats Stats object
+     * @param {Set<DSNode>} merged Set of merged nodes to update
      */
-    processLink(linkInfo, stats) {
+    processLink(linkInfo, merged) {
         if (!linkInfo) {
             return;
         }
@@ -605,17 +666,57 @@ class DuplicateFinder {
         node.dupRecord = new DupRecord(linkInfo.thing);
         // Merge by URL
         if (linkInfo.url) {
-            const urlMap = this.urlMap;
-            const url = linkInfo.url;
-            if (urlMap.has(url)) {
-                mergeDuplicates(urlMap.get(url), node, this.pageType, stats);
-            } else {
-                urlMap.set(url, node);
-            }
+            this.updateUrlMap(linkInfo, node, merged);
         }
         // Merge by thumbnail
         if (this.deduplicateThumbs && linkInfo.thumbnailHash) {
-            this.updateThumbMap(linkInfo, node, stats);
+            this.updateThumbMap(linkInfo, node, merged);
+        }
+    }
+
+    /**
+     * Add a list of links to the disjoint-set forest and merge duplicates.
+     *
+     * @param {LinkInfo} linkInfo Information about a link
+     * @param {Stats} stats Stats object
+     */
+    processLinks(linkInfos, stats) {
+        // First, update the discrete-set data structure
+        // and compile a set of merged nodes
+        const merged = new Set();
+        for (const linkInfo of linkInfos) {
+            this.processLink(linkInfo, merged);
+        }
+        // For each merged node, merge all associated duplicate records
+        // and update the DOM.
+        for (const node of merged.values()) {
+            const dupRecords = Array.from(flatten(node.dupRecord));
+            let primaryRecord = dupRecords[0];
+            for (const dupRecord of dupRecords) {
+                if (dupRecord.index < primaryRecord.index) {
+                    primaryRecord = dupRecord;
+                }
+            }
+            // Merge lists of links in index order
+            const mergedLinks = mergeK(dupRecords.map(dr => dr.links),
+                                       linkIndexComparator);
+            for (const dupRecord of dupRecords) {
+                if (dupRecord === primaryRecord) {
+                    if (dupRecord.links.length <= 1) {
+                        stats.numWithDups++;
+                    }
+                    dupRecord.updateLinks(mergedLinks, this.pageType);
+                } else {
+                    if (dupRecord.links.length > 1) {
+                        stats.numWithDups--;
+                    }
+                    stats.totalDups++;
+                    if (dupRecord.taglineElt) {
+                        dupRecord.taglineElt.remove();
+                    }
+                }
+            }
+            node.dupRecord = primaryRecord;
         }
     }
 }
@@ -667,9 +768,7 @@ async function main() {
         }));
     const t1 = performance.now();
     const stats = {numWithDups: 0, totalDups: 0};
-    for (const linkInfo of linkInfos) {
-        dupFinder.processLink(linkInfo, stats);
-    }
+    dupFinder.processLinks(linkInfos, stats);
     const t2 = performance.now();
     logStats(stats, t1-t0, t2-t1);
 }
