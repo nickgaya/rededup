@@ -624,18 +624,19 @@ class DuplicateFinder {
  * Log duplicate stats to the console.
  *
  * @param {Stats} stats Stats object
- * @param {Number} t0 Initial timestamp for performance measurement
+ * @param {Number} linkInfoMs Duration to get link info
+ * @param {Number} findDupsMs Duration to find duplicates
  */
-function logDupInfo(stats, t0) {
-    const t1 = performance.now();
+function logStats(stats, linkInfoMs, findDupsMs) {
+    const perfStr = (`(process=${linkInfoMs} ms, dedup=${findDupsMs} ms)`);
     if (stats.numWithDups === 0) {
-        console.log("No duplicates found", `(${t1-t0} ms)`);
+        console.log("No duplicates found", perfStr);
     } else {
         const s1 = stats.numWithDups > 1 ? 's' : '';
         const s2 = stats.totalDups > 1 ? 's' : '';
         console.log(`Found ${stats.numWithDups} item${s1}`,
                     `with ${stats.totalDups} duplicate${s2}`,
-                    `(${t1-t0} ms)`);
+                    perfStr);
     }
 }
 
@@ -664,11 +665,13 @@ async function main() {
             thing[indexSymbol] = index;
             return getLinkInfo(thing, pageType, settings);
         }));
+    const t1 = performance.now();
     const stats = {numWithDups: 0, totalDups: 0};
     for (const linkInfo of linkInfos) {
         dupFinder.processLink(linkInfo, stats);
     }
-    logDupInfo(stats, t0);
+    const t2 = performance.now();
+    logStats(stats, t1-t0, t2-t1);
 }
 
 main().catch((error) => console.error(error));
