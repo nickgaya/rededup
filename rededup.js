@@ -473,8 +473,19 @@ function merge2(l1, l2, compareFunction) {
  * @return {Array} The merged array.
  */
 function mergeK(A, compareFunction) {
-    // Iteratively merge the two shortest lists
-    // Worst-case O(n log k), but can be O(n + k log k)
+    if (A.length === 0) {
+        return [];
+    }
+    if (A.length === 1) {
+        return A[0];
+    }
+    if (A.length === 2) {
+        return merge2(A[0], A[1], compareFunction);
+    }
+    // Iteratively merge the two shortest lists. This creates a merge tree
+    // analogous to a Huffman tree of array sizes, thereby minimizing total
+    // operations.
+    // Worst-case performance O(n log k)
     A.sort((l1, l2) => l1.length - l2.length);
     const A_len = A.length;
     const B_len = A_len - 1;
@@ -692,14 +703,20 @@ class DuplicateFinder {
         for (const node of merged.values()) {
             const dupRecords = Array.from(flatten(node.dupRecord));
             let primaryRecord = dupRecords[0];
+            let links = [[]]
             for (const dupRecord of dupRecords) {
                 if (dupRecord.index < primaryRecord.index) {
                     primaryRecord = dupRecord;
                 }
+                if (dupRecord.links.length === 1) {
+                    links[0].push(dupRecord.links[0]);
+                } else {
+                    links.push(dupRecord.links);
+                }
             }
+            links[0].sort(linkIndexComparator);
             // Merge lists of links in index order
-            const mergedLinks = mergeK(dupRecords.map(dr => dr.links),
-                                       linkIndexComparator);
+            const mergedLinks = mergeK(links, linkIndexComparator);
             for (const dupRecord of dupRecords) {
                 if (dupRecord === primaryRecord) {
                     if (dupRecord.links.length <= 1) {
