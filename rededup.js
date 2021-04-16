@@ -34,16 +34,16 @@ const PageType = Object.freeze({
 });
 
 /**
- * @typedef {Object} Links
- * @property {?NodeList} links - A list of link elements.
+ * @typedef {Object} PageInfo
+ * @property {?Element} container - Link container
  * @property {String} pageType - Page type
  */
 
 /**
- * Get links from the current page.
- * @return {Links} An object containing the list of links and type.
+ * Get info for getting links from the current page
+ * @return {PageInfo} An object containing the page type and link container
  */
-function getLinks() {
+function getPageInfo() {
     // See https://www.reddit.com/r/csshelp/wiki/selectors
     if (!document.body.classList.length) {
         // New Reddit, interstitial page, etc.
@@ -55,14 +55,14 @@ function getLinks() {
     } else if (document.body.classList.contains('listing-page')) {
         // Subreddit or user profile page
         return {
-            links: document.body.querySelectorAll('#siteTable > .thing.link'),
+            container: document.body.querySelector('#siteTable'),
             pageType: PageType.LISTING_PAGE,
         };
     } else if (document.body.classList.contains('search-page')) {
         // Search results have a different page structure
+        const groups = document.body.querySelectorAll('.search-result-group');
         return {
-            links: document.body.querySelectorAll(
-                '.search-result-listing .search-result-link'),
+            container: groups[groups.length-1],
             pageType: PageType.SEARCH_PAGE,
         };
     } else {
@@ -70,6 +70,42 @@ function getLinks() {
         console.debug("Other page type", document.body.classList);
         return {pageType: "other"};
     }
+}
+
+/**
+ * Symbol for recording the original position of a link on the page. This is
+ * used to keep links in order when combining duplicates.
+ *
+ * @constant {Symbol}
+ */
+const indexSymbol = Symbol('index');
+
+/** Index to assign to next link. */
+let nextIndex = 0;
+
+/**
+ * Get links from the given container.
+ *
+ * @param {Element} container - Element containing links
+ * @param {String} pageType - Page type
+ * @return {Element[]} List of links.
+ */
+function getLinks(container, pageType) {
+    let links;
+    switch (pageType) {
+        case PageType.LISTING_PAGE:
+            links = container.querySelectorAll('.thing.link');
+            break;
+        case PageType.SEARCH_PAGE:
+            links = container.querySelectorAll('.search-result-link');
+            break;
+        default:
+            throw "Invalid page type";
+    }
+    for (const link of links) {
+        link[indexSymbol] = nextIndex++;
+    }
+    return links;
 }
 
 /**
@@ -186,14 +222,6 @@ function moveThingAfter(thing, otherThing) {
         pred.after(otherThing);
     }
 }
-
-/**
- * Symbol for recording the original position of a link on the page. This is
- * used to keep links in order when combining duplicates.
- *
- * @constant {Symbol}
- */
-const indexSymbol = Symbol('index');
 
 /**
  * Information about a link with duplicates.
@@ -692,7 +720,10 @@ class DuplicateFinder {
      * @param {Stats} stats Stats object
      */
     processLinks(linkInfos, stats) {
-        // First, update the discrete-set data structure
+        const batchStats = {numWithDups: 0, totalDups: 0};
+        const startIndex = linkInfos[0].thing[indexSymbol];
+        const endIndex = linkInfos[linkInfos.length-1].thing[indexSymbol];
+        // First, update the discrete-set data structure for each new link
         // and compile a set of merged nodes
         const merged = new Set();
         for (const linkInfo of linkInfos) {
@@ -717,17 +748,27 @@ class DuplicateFinder {
             links[0].sort(linkIndexComparator);
             // Merge lists of links in index order
             const mergedLinks = mergeK(links, linkIndexComparator);
+            // Update DOM and record stats for logging
             for (const dupRecord of dupRecords) {
+                const hasDups = dupRecord.links.length > 1;
+                const inBatch = (dupRecord.index >= startIndex
+                                 && dupRecord.index <= endIndex);
                 if (dupRecord === primaryRecord) {
-                    if (dupRecord.links.length <= 1) {
+                    if (!hasDups) {
                         stats.numWithDups++;
+                        if (inBatch) {
+                            batchStats.numWithDups++;
+                        }
                     }
                     dupRecord.updateLinks(mergedLinks, this.pageType);
                 } else {
-                    if (dupRecord.links.length > 1) {
+                    if (hasDups) {
                         stats.numWithDups--;
                     }
                     stats.totalDups++;
+                    if (inBatch) {
+                        batchStats.totalDups++;
+                    }
                     if (dupRecord.taglineElt) {
                         dupRecord.taglineElt.remove();
                     }
@@ -735,6 +776,7 @@ class DuplicateFinder {
             }
             node.dupRecord = primaryRecord;
         }
+        return batchStats;
     }
 }
 
@@ -742,20 +784,59 @@ class DuplicateFinder {
  * Log duplicate stats to the console.
  *
  * @param {Stats} stats Stats object
+ * @param {BatchStats} stats - Stats object for batch
+ * @param {Boolean} first - Whether this is the first batch
  * @param {Number} linkInfoMs Duration to get link info
  * @param {Number} findDupsMs Duration to find duplicates
  */
-function logStats(stats, linkInfoMs, findDupsMs) {
-    const perfStr = (`(process=${linkInfoMs} ms, dedup=${findDupsMs} ms)`);
-    if (stats.numWithDups === 0) {
-        console.log("No duplicates found", perfStr);
+function logStats(stats, batchStats, first, linkInfoMs, findDupsMs) {
+    if (batchStats.totalDups === 0) {
+        console.log("No duplicates found (process=%s ms, dedup=%s ms)",
+                    linkInfoMs, findDupsMs);
+    } else if (first) {
+        console.log("Found %d item%s with %d duplicate%s "
+                    + "(process=%s ms, dedup=%s ms)",
+                    stats.numWithDups, stats.numWithDups === 1 ? '' : 's',
+                    stats.totalDups, stats.totalDups === 1 ? '' : 's',
+                    linkInfoMs, findDupsMs);
     } else {
-        const s1 = stats.numWithDups > 1 ? 's' : '';
-        const s2 = stats.totalDups > 1 ? 's' : '';
-        console.log(`Found ${stats.numWithDups} item${s1}`,
-                    `with ${stats.totalDups} duplicate${s2}`,
-                    perfStr);
+        console.log("Found %d duplicate%s, "
+                    + "total %d item%s with %d duplicate%s "
+                    + "(process=%s ms, dedup=%s ms)",
+                    batchStats.totalDups,
+                    batchStats.totalDups === 1 ? '' : 's',
+                    stats.numWithDups, stats.numWithDups === 1 ? '' : 's',
+                    stats.totalDups, stats.totalDups === 1 ? '' : 's',
+                    linkInfoMs, findDupsMs);
     }
+}
+
+/**
+ * Process a batch of links and coalesce duplicates.
+ *
+ * @param {Element[]} links - List of links to process
+ * @param {String} pageType - Page type
+ * @param {Boolean} first - Whether this is the first batch
+ * @param {DupFinder} dupFinder - Duplicate finder
+ * @param {Settings} settings - User settings
+ * @param {Stats} stats - Stats object
+ */
+async function processBatch(links, pageType, first,
+                            dupFinder, settings, stats) {
+    const s = (links.length === 1) ? '' : 's';
+    if (first) {
+        console.log("Processing %d link%s (%s)", links.length, s, pageType);
+    } else {
+        console.log("Processing %d additional link%s", links.length, s);
+    }
+    const t0 = performance.now();
+    // Get info for all links before merging duplicates
+    const linkInfos = await Promise.all(
+        Array.from(links, thing => getLinkInfo(thing, pageType, settings)));
+    const t1 = performance.now();
+    const batchStats = dupFinder.processLinks(linkInfos, stats);
+    const t2 = performance.now();
+    logStats(stats, batchStats, first, t1-t0, t2-t1);
 }
 
 /**
@@ -763,31 +844,39 @@ function logStats(stats, linkInfoMs, findDupsMs) {
  * duplicate processing.
  */
 async function main() {
-    const t0 = performance.now();
-    const {links, pageType} = getLinks();
-    if (!links) {
+    const {container, pageType} = getPageInfo();
+    if (!container) {
         console.log("Not processing page", `(${pageType})`);
         return;
     }
-    if (!links.length) {
-        console.log("No links found", `(${pageType})`);
-        return;
-    }
-    console.log("Processing", links.length,
-                (links.length === 1) ? 'link' : 'links', `(${pageType})`);
     const settings = await getSettings();
     const dupFinder = new DuplicateFinder(pageType, settings);
-    // Get info for all links before merging duplicates
-    const linkInfos = await Promise.all(
-        Array.from(links, (thing, index) => {
-            thing[indexSymbol] = index;
-            return getLinkInfo(thing, pageType, settings);
-        }));
-    const t1 = performance.now();
     const stats = {numWithDups: 0, totalDups: 0};
-    dupFinder.processLinks(linkInfos, stats);
-    const t2 = performance.now();
-    logStats(stats, t1-t0, t2-t1);
+    const links = getLinks(container, pageType);
+    if (!links.length) {
+        console.log("No links found", `(${pageType})`);
+    } else {
+        processBatch(links, pageType, true, dupFinder, settings, stats)
+            .catch((error) => console.error(error));
+    }
+
+    // Monitor container for new links to process.
+    const observer = new MutationObserver(mutationList => {
+        for (const mutation of mutationList) {
+            // RES/NER adds each new page of links within an anonymous div
+            // element, so query for links within each added child node.
+            for (const child of mutation.addedNodes) {
+                const links = getLinks(child, pageType);
+                if (!links.length) {
+                    continue;
+                }
+                processBatch(links, pageType, false,
+                             dupFinder, settings, stats)
+                    .catch((error) => console.error(error));
+            }
+        }
+    });
+    observer.observe(container, {childList: true});
 }
 
 main().catch((error) => console.error(error));

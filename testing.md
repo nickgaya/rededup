@@ -69,6 +69,16 @@ working even when there are no duplicates on the page.
 
     3. Verify that duplicates are coalesced as expected.
 
+7. Never Ending Reddit
+
+    1. Install the Reddit Enhancement Suite addon and enable the
+        "Never Ending Reddit" feature.
+
+    2. Find a user with many duplicate submissions
+
+    3. Scroll down to load additional pages and verify that duplicates are
+       coalesced as expected.
+
 ## Functionality
 
 These tests use specific posts to verify the deduplication functionality.

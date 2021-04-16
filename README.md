@@ -14,6 +14,9 @@ users will post the same link or upload the same image to multiple subreddits.
 It can also be useful for viewing subscriptions or multireddits that aggregate
 posts from similar subreddits.
 
+This extension is compatible with Reddit Enhancement Suite's "Never Ending
+Reddit" feature.
+
 ## Screenshots
 
 | <img src="images/s1_hide.png" width="640" /> |
