@@ -61,9 +61,9 @@ function getPageInfo() {
         };
     } else if (document.body.classList.contains('combined-search-page')) {
         // Combined search page
-        const groups = document.body.querySelectorAll('.search-result-group');
         return {
-            container: groups[groups.length-1],
+            container: document.body.querySelector(
+                '.content > .search-result-listing > .search-result-group'),
             pageType: PageType.SEARCH_PAGE,
         };
     } else if (document.body.classList.contains('search-page')) {
