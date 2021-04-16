@@ -2,6 +2,7 @@
 
 ## Version 1.2
 
+- Correctly handle legacy search page
 - Minor fixes/improvements
 
 ## Version 1.1
