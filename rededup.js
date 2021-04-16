@@ -31,6 +31,7 @@ function bufToString(buffer) {
 const PageType = Object.freeze({
     LISTING_PAGE: 'listing page',
     SEARCH_PAGE: 'search page',
+    LEGACY_SEARCH_PAGE: 'legacy search page',
 });
 
 /**
@@ -58,12 +59,18 @@ function getLinks() {
             links: document.body.querySelectorAll('#siteTable > .thing.link'),
             pageType: PageType.LISTING_PAGE,
         };
-    } else if (document.body.classList.contains('search-page')) {
-        // Search results have a different page structure
+    } else if (document.body.classList.contains('combined-search-page')) {
+        // Combined search page
         return {
             links: document.body.querySelectorAll(
                 '.search-result-listing .search-result-link'),
             pageType: PageType.SEARCH_PAGE,
+        };
+    } else if (document.body.classList.contains('search-page')) {
+        // Legacy search page
+        return {
+            links: document.body.querySelectorAll('#siteTable > .thing.link'),
+            pageType: PageType.LEGACY_SEARCH_PAGE,
         };
     } else {
         // Other page such as post submission form, wiki page, etc.
@@ -82,6 +89,7 @@ function getLinks() {
 function getTagline(thing, pageType) {
     switch (pageType) {
         case PageType.LISTING_PAGE:
+        case PageType.LEGACY_SEARCH_PAGE:
             return thing.querySelector('.tagline');
         case PageType.SEARCH_PAGE:
             return thing.querySelector('.search-result-meta');
@@ -120,6 +128,7 @@ async function getLinkInfo(thing, pageType, settings) {
 
     switch (pageType) {
         case PageType.LISTING_PAGE:
+        case PageType.LEGACY_SEARCH_PAGE:
             linkInfo.url = thing.dataset.url;
             linkInfo.domain = thing.dataset.domain;
             break;

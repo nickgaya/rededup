@@ -69,6 +69,16 @@ working even when there are no duplicates on the page.
 
     3. Verify that duplicates are coalesced as expected.
 
+7. Legacy search page
+
+    1. Navigate to https://old.reddit.com/search?feature=legacy_search and
+       enter a search that will likely produce duplicates (e.g. a top headline
+       from /r/news).
+
+    2. Verify that the search page functions as expected.
+
+    3. Verify that duplicates are coalesced as expected.
+
 ## Functionality
 
 These tests use specific posts to verify the deduplication functionality.
