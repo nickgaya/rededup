@@ -602,6 +602,7 @@ class DuplicateFinder {
             this.maxHammingDistance = settings.maxHammingDistance;
             this.useBk = settings.maxHammingDistance > 0;
         }
+        this.stats = {numWithDups: 0, totalDups: 0};
     }
 
     /**
@@ -725,13 +726,21 @@ class DuplicateFinder {
     /**
      * Add a list of links to the disjoint-set forest and merge duplicates.
      *
-     * @param {LinkInfo} linkInfo Information about a link
-     * @param {Stats} stats Stats object
+     * @param {LinkInfo[]} linkInfos List of link info objects
+     * @return {Stats} stats Batch stats
      */
-    processLinks(linkInfos, stats) {
+    processLinks(linkInfos) {
+        const stats = this.stats;
         const batchStats = {numWithDups: 0, totalDups: 0};
-        const startIndex = linkInfos[0].thing[indexSymbol];
-        const endIndex = linkInfos[linkInfos.length-1].thing[indexSymbol];
+        let startIndex, endIndex;
+        // Find first non-null element
+        for (let i = 0; i < linkInfos.length; i++) {
+            if (linkInfos[i]) {
+                startIndex = linkInfos[i].thing[indexSymbol] - i;
+                endIndex = startIndex + linkInfos.length;
+                break;
+            }
+        }
         // First, update the discrete-set data structure for each new link
         // and compile a set of merged nodes
         const merged = new Set();
@@ -794,15 +803,15 @@ class DuplicateFinder {
  *
  * @param {Stats} stats Stats object
  * @param {BatchStats} stats - Stats object for batch
- * @param {Boolean} first - Whether this is the first batch
  * @param {Number} linkInfoMs Duration to get link info
  * @param {Number} findDupsMs Duration to find duplicates
  */
-function logStats(stats, batchStats, first, linkInfoMs, findDupsMs) {
+function logStats(stats, batchStats, linkInfoMs, findDupsMs) {
     if (batchStats.totalDups === 0) {
         console.log("No duplicates found (process=%s ms, dedup=%s ms)",
                     linkInfoMs, findDupsMs);
-    } else if (first) {
+    } else if (batchStats.totalDups === stats.totalDups) {
+        // First batch with duplicates
         console.log("Found %d item%s with %d duplicate%s "
                     + "(process=%s ms, dedup=%s ms)",
                     stats.numWithDups, stats.numWithDups === 1 ? '' : 's',
@@ -826,12 +835,10 @@ function logStats(stats, batchStats, first, linkInfoMs, findDupsMs) {
  * @param {Element[]} links - List of links to process
  * @param {String} pageType - Page type
  * @param {Boolean} first - Whether this is the first batch
- * @param {DupFinder} dupFinder - Duplicate finder
+ * @param {DuplicateFinder} dupFinder - Duplicate finder
  * @param {Settings} settings - User settings
- * @param {Stats} stats - Stats object
  */
-async function processBatch(links, pageType, first,
-                            dupFinder, settings, stats) {
+async function processBatch(links, pageType, first, dupFinder, settings) {
     const s = (links.length === 1) ? '' : 's';
     if (first) {
         console.log("Processing %d link%s (%s)", links.length, s, pageType);
@@ -843,9 +850,9 @@ async function processBatch(links, pageType, first,
     const linkInfos = await Promise.all(
         Array.from(links, thing => getLinkInfo(thing, pageType, settings)));
     const t1 = performance.now();
-    const batchStats = dupFinder.processLinks(linkInfos, stats);
+    const batchStats = dupFinder.processLinks(linkInfos);
     const t2 = performance.now();
-    logStats(stats, batchStats, first, t1-t0, t2-t1);
+    logStats(dupFinder.stats, batchStats, t1-t0, t2-t1);
 }
 
 /**
@@ -860,12 +867,11 @@ async function main() {
     }
     const settings = await getSettings();
     const dupFinder = new DuplicateFinder(pageType, settings);
-    const stats = {numWithDups: 0, totalDups: 0};
     const links = getLinks(container, pageType);
     if (!links.length) {
         console.log("No links found", `(${pageType})`);
     } else {
-        processBatch(links, pageType, true, dupFinder, settings, stats)
+        processBatch(links, pageType, true, dupFinder, settings)
             .catch((error) => console.error(error));
     }
 
@@ -879,8 +885,7 @@ async function main() {
                 if (!links.length) {
                     continue;
                 }
-                processBatch(links, pageType, false,
-                             dupFinder, settings, stats)
+                processBatch(links, pageType, false, dupFinder, settings)
                     .catch((error) => console.error(error));
             }
         }
