@@ -2,6 +2,7 @@
 
 ## Version 1.2
 
+- Add support for RES "Never Ending Reddit" feature
 - Correctly handle legacy search page
 - Minor fixes/improvements
 
