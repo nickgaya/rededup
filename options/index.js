@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ddByUrlOnly = document.getElementById('ddByUrlOnly');
     const domainSettingsButton =
         document.getElementById('domainSettingsButton');
+    const numDomains = document.getElementById('numDomains');
     const dctHash = document.getElementById('dctHash');
     const diffHash = document.getElementById('diffHash');
     const waveletHash = document.getElementById('waveletHash');
@@ -23,6 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const domainSettingsCancel =
         document.getElementById('domainSettingsCancel');
 
+    let lastDomainSettingsLst = [];
+
     const domainRegex = /^([a-zA-Z0-9-]{1,63}[.])*[a-zA-Z0-9-]{1,63}$/;
 
     /** Check that a domain name is valid. */
@@ -40,7 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (domain.includes('/') || domain.includes(':')) {
             try {
                 domain = new URL(domain).hostname;
-            } catch (error) {}
+            } catch (error) {
+                return null;
+            }
         }
         if (domain.endsWith('.')) {
             domain = domain.slice(0, -1);
@@ -83,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const button = document.createElement('button');
         button.textContent = 'Remove';
         button.addEventListener('click', (event) => {
-            row.remove();
+            domainTable.removeChild(row);
         });
         cell3.append(button);
         row.append(cell3);
@@ -105,19 +110,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             if (otherSortKey.localeCompare(rowSortKey) > 0) {
-                otherRow.before(row);
+                domainTable.insertBefore(row, otherRow);
                 return;
             }
         }
-        domainTable.append(row);
+        domainTable.appendChild(row);
     }
 
-    /** Refresh domain settings table. */
-    function refreshDomainTable(settings) {
+    /** Populate domain settings table with the given domain settings list. */
+    function updateDomainSettingsTable(domainSettingsLst) {
         while (domainTable.lastChild) {
             domainTable.removeChild(domainTable.lastChild);
         }
-        for (const [domain, domainSettings] of settings.domainSettings) {
+        for (const [domain, domainSettings] of domainSettingsLst) {
             addDomainRow(domain, domainSettings);
         }
     }
@@ -129,7 +134,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             ddByUrlOnly.checked = true;
         }
-        refreshDomainTable(settings);
+        lastDomainSettingsLst = settings.domainSettings;
+        numDomains.textContent = lastDomainSettingsLst.length;
+        updateDomainSettingsTable(lastDomainSettingsLst);
         if (settings.hashFunction === 'diffHash') {
             diffHash.checked = true;
         } else if (settings.hashFunction === 'waveletHash') {
@@ -151,8 +158,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     domainSettingsButton.addEventListener('click', (event) => {
-        domainSettingsDiv.style.display = '';
         settingsDiv.style.display = 'none';
+        domainSettingsDiv.style.display = '';
     });
 
     dctHash.addEventListener('click', (event) =>
@@ -197,26 +204,23 @@ document.addEventListener("DOMContentLoaded", () => {
     domainSettingsSave.addEventListener('click', (event) => {
         domainInputText.value = "";
         domainInputCheckbox.checked = false;
-        browser.storage.local.set({
-            domainSettings: Array.from(domainTable.children, (row) => {
-                const domain = row.children[0].textContent;
-                const domainSettings = {
-                    deduplicateThumbs: row.children[1].children[0].checked,
-                };
-                return [domain, domainSettings];
-            }),
+        lastDomainSettingsLst = Array.from(domainTable.children, (row) => {
+            const domain = row.children[0].textContent;
+            const domainSettings = {
+                deduplicateThumbs: row.children[1].children[0].checked,
+            };
+            return [domain, domainSettings];
         });
+        numDomains.textContent = lastDomainSettingsLst.length;
+        browser.storage.local.set({domainSettings: lastDomainSettingsLst});
         settingsDiv.style.display = '';
         domainSettingsDiv.style.display = 'none';
     });
 
     domainSettingsCancel.addEventListener('click', (event) => {
-        while (domainTable.lastChild) {
-            domainTable.removeChild(domainTable.lastChild);
-        }
+        updateDomainSettingsTable(lastDomainSettingsLst);
         domainInputText.value = "";
         domainInputCheckbox.checked = false;
-        getSettings().then(refreshDomainTable);
         settingsDiv.style.display = '';
         domainSettingsDiv.style.display = 'none';
     });
