@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.3
+
+- Add per-domain settings for deduplicating by thumbnail
+
 ## Version 1.2
 
 - Add support for RES "Never Ending Reddit" feature

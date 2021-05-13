@@ -5,50 +5,81 @@
   </head>
 
   <body>
-    <div>
-        Deduplicate posts by
-        <input id="ddByUrlAndThumb" type="radio" name="deduplicateBy"
-         value="urlAndThumb" checked="checked" />
-        <label for="ddByUrlAndThumb">URL and thumbnail</label>
-        <input id="ddByUrlOnly" type="radio" name="deduplicateBy"
-         value="urlOnly" />
-        <label for="ddByUrlOnly">URL only</label>
-    <div>
+    <div id="settingsDiv">
+        <div>
+            Deduplicate posts by
+            <input id="ddByUrlAndThumb" type="radio" name="deduplicateBy"
+             value="urlAndThumb" checked="checked" />
+            <label for="ddByUrlAndThumb">URL and thumbnail</label>
+            <input id="ddByUrlOnly" type="radio" name="deduplicateBy"
+             value="urlOnly" />
+            <label for="ddByUrlOnly">URL only</label>
+            <button id="domainSettingsButton">
+                Domain overrides (<span id="numDomains">0</span>)&hellip;
+            </button>
+        </div>
 
-    <div>
-        Image hash function
-        <input id="dctHash" type="radio"
-         name="hashFunction" value="dctHash" checked="checked" />
-        <label for="dctHash">DCT Hash</label>
-        <input id="diffHash" type="radio"
-         name="hashFunction" value="diffHash" />
-        <label for="diffHash">Difference Hash</label>
-        <input id="waveletHash" type="radio"
-         name="hashFunction" value="waveletHash" />
-        <label for="waveletHash">Wavelet Hash</label>
+        <div>
+            Image hash function
+            <input id="dctHash" type="radio"
+             name="hashFunction" value="dctHash" checked="checked" />
+            <label for="dctHash">DCT Hash</label>
+            <input id="diffHash" type="radio"
+             name="hashFunction" value="diffHash" />
+            <label for="diffHash">Difference Hash</label>
+            <input id="waveletHash" type="radio"
+             name="hashFunction" value="waveletHash" />
+            <label for="waveletHash">Wavelet Hash</label>
+        </div>
+
+        <div>
+            <label for="maxHammingDistance">Maximum Hamming distance</label>
+            <br />
+            <input id="maxHammingDistance" type="range"
+             min="0" max="16" value="8" step="1" />
+            <input id="maxHammingDistanceText" type="text" size="1" value="8"
+             readonly="true" />
+        </div>
+
+        <div>
+            <input id="partitionByDomain" type="checkbox" checked="checked" />
+            <label for="partitionByDomain">Partition by domain</label>
+        </div>
+
+        <div>
+            <input id="showHashValues" type="checkbox" />
+            <label for="showHashValues">Show thumbnail hashes</label>
+        </div>
+
+        <div>
+        <button id="reset">Reset to defaults</button>
+        </div>
     </div>
 
-    <div>
-        <label for="maxHammingDistance">Maximum Hamming distance</label>
-        <br />
-        <input id="maxHammingDistance" type="range"
-         min="0" max="16" value="8" step="1" />
-        <input id="maxHammingDistanceText" type="text" size="1" value="8"
-         readonly="true" />
-    </div>
-
-    <div>
-        <input id="partitionByDomain" type="checkbox" checked="checked" />
-        <label for="partitionByDomain">Partition by domain</label>
-    </div>
-
-    <div>
-        <input id="showHashValues" type="checkbox" />
-        <label for="showHashValues">Show thumbnail hashes</label>
-    </div>
-
-    <div>
-    <button id="reset">Reset to defaults</button>
+    <div id="domainSettingsDiv" style="display:none">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Domain</th>
+                    <th scope="col">Process thumbnails</th>
+                    <td>
+                <tr>
+            </thead>
+            <tbody id="domainTable">
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><input id="domainInputText" type="text"
+                               size="32"/></td>
+                    <td><input id="domainInputCheckbox"type="checkbox" /></td>
+                    <td><button id="domainInputButton">Add</button></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div>
+            <button id="domainSettingsSave">Save</button>
+            <button id="domainSettingsCancel">Cancel</button>
+        </div>
     </div>
 
     <!-- <script src="../browser-polyfill.js"></script> -->

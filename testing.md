@@ -165,7 +165,23 @@ These tests verify the settings UI and the different settings values.
 
     5. Verify that the two posts are not collated.
 
-2. Hash function
+2. Domain overrides
+
+    1. Navigate to https://old.reddit.com/by_id/t3_narqjh,t3_na423x,t3_nas73l
+
+    2. Verify that all posts are collated
+
+    3. In the extension settings, add a domain override for "independent.co.uk"
+       with "Process thumbnails" deselected.
+
+    4. Refresh the page from step 1.
+
+    5. Verify that posts are collated as expected.
+
+        * narqjh should be collated with nas73l
+        * na423x should be separate
+
+3. Hash function
 
     1. Navigate to https://old.reddit.com/by_id/t3_k7rhax,t3_k7rdve.
 
@@ -175,11 +191,11 @@ These tests verify the settings UI and the different settings values.
 
     4. Refresh the page and verify that the two posts are still collated.
 
-    5. In the extension settings, select the "Difference Hash" function.
+    5. In the extension settings, select the "Wavelet Hash" function.
 
     6. Refresh the page and verify that the two posts are still collated.
 
-3. Hamming distance
+4. Hamming distance
 
     1. Navigate to https://old.reddit.com/by_id/t3_it6czg,t3_it6el1,t3_it8ric.
 
@@ -191,7 +207,7 @@ These tests verify the settings UI and the different settings values.
 
     5. Verify that only it6czg and it6el1 are collated.
 
-4. Partition by domain
+5. Partition by domain
 
     1. Navigate to https://old.reddit.com/by_id/t3_jyymza,t3_jyyy2a.
 
@@ -203,7 +219,7 @@ These tests verify the settings UI and the different settings values.
 
     5. Verify that the posts are collated.
 
-5. Show hash values
+6. Show hash values
 
     1. In the extension settings, enable "Show hash values".
 

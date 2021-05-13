@@ -182,7 +182,7 @@ async function getLinkInfo(thing, pageType, settings) {
     }
 
 
-    if (settings.deduplicateThumbs) {
+    if (settings.shouldProcessThumbnail(linkInfo.domain)) {
         const thumbnailImg = thing.querySelector(':scope > .thumbnail > img');
         if (thumbnailImg) {
             try {
@@ -591,17 +591,14 @@ class DuplicateFinder {
     constructor(pageType, settings) {
         this.pageType = pageType;
         this.urlMap = new Map();
-        this.deduplicateThumbs = settings.deduplicateThumbs;
-        if (this.deduplicateThumbs) {
-            this.partitionByDomain = settings.partitionByDomain;
-            if (this.partitionByDomain) {
-                this.thumbDomainMap = new Map();
-            } else {
-                this.thumbMap = new Map();
-            }
-            this.maxHammingDistance = settings.maxHammingDistance;
-            this.useBk = settings.maxHammingDistance > 0;
+        this.partitionByDomain = settings.partitionByDomain;
+        if (this.partitionByDomain) {
+            this.thumbDomainMap = new Map();
+        } else {
+            this.thumbMap = new Map();
         }
+        this.maxHammingDistance = settings.maxHammingDistance;
+        this.useBk = settings.maxHammingDistance > 0;
         this.stats = {numWithDups: 0, totalDups: 0};
     }
 
@@ -718,7 +715,7 @@ class DuplicateFinder {
             this.updateUrlMap(linkInfo, node, merged);
         }
         // Merge by thumbnail
-        if (this.deduplicateThumbs && linkInfo.thumbnailHash) {
+        if (linkInfo.thumbnailHash) {
             this.updateThumbMap(linkInfo, node, merged);
         }
     }
