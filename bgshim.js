@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Convert a base64-encoded string to an ArrayBuffer.
  *

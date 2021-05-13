@@ -1,3 +1,5 @@
+"use strict";
+
 /** Return a promise containing a data url for a file's contents. */
 function fileToDataURL(file) {
     return new Promise((resolve, reject) => {

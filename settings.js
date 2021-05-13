@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Trie-based map.
  *

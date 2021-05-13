@@ -12,6 +12,8 @@
 #      coefficients
 
 def generate(p, t):
+    yield '"use strict";'
+    yield ''
     yield (f'/** Compute the first {t+1} coefficients of the {2**p}-element '
            'DCT-II. */')
     yield f'const fdct{2**p}_{t+1} = function() {{'

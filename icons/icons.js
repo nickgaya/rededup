@@ -1,3 +1,5 @@
+"use strict";
+
 function loadImage(img) {
     if (img.complete) {
         if (img.naturalWidth === 0) {

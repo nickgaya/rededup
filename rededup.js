@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Convert an ArrayBuffer to a human-readable hex string for logging or similar
  * purposes.

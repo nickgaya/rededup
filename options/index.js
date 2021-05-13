@@ -1,3 +1,5 @@
+"use strict";
+
 document.addEventListener("DOMContentLoaded", () => {
     const settingsDiv = document.getElementById('settingsDiv');
     const ddByUrlAndThumb = document.getElementById('ddByUrlAndThumb');

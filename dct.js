@@ -1,3 +1,5 @@
+"use strict";
+
 /** Compute the first 11 coefficients of the 32-element DCT-II. */
 const fdct32_11 = function() {
     const C0 = Math.cos(Math.PI / 4);
