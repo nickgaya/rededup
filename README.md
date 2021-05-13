@@ -98,6 +98,9 @@ data structure adapted to discrete metric spaces such as Hamming space.
   Independent* are sometimes wrongly identified as duplicates due to having the
   same generic "breaking news" thumbnail.
 
+  As a workaround, you can add domain overrides in the extension preferences to
+  ignore thumbnails for affected domains.
+
 * **Variant URLs** Sometimes different users will post the same URL with small
   variations, such as tracking parameters. Currently the extension only looks
   for exact duplicates when deduplicating by URL.
