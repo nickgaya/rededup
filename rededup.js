@@ -195,7 +195,10 @@ async function getLinkInfo(thing, pageType, settings) {
                 if (settings.showHashValues) {
                     const hashElt = document.createElement('code');
                     hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
-                    getTagline(thing, pageType).append(' [', hashElt, ']');
+                    const spanElt = document.createElement('span');
+                    spanElt.classList.add('rededup-hash');
+                    spanElt.append(' [', hashElt, ']');
+                    getTagline(thing, pageType).append(spanElt);
                 }
             } catch (error) {
                 console.warn("Failed to get thumbnail hash", thumbnailImg,

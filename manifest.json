@@ -8,6 +8,12 @@
   "description": "Hide duplicate posts on pre-redesign Reddit.",
   "homepage_url": "https://nickgaya.github.io/rededup/",
 
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{68f0c654-5a3d-423b-b846-2b3ab68d05dd}"
+    }
+  },
+
   "icons": {
     "48": "icons/icon.svg",
     "96": "icons/icon.svg"

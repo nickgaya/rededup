@@ -3,6 +3,7 @@
 ## Version 1.3
 
 - Add per-domain settings for deduplicating by thumbnail
+- Automate basic browser tests using Selenium
 - Minor fixes/improvements
 
 ## Version 1.2

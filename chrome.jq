@@ -26,3 +26,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
 })
+
+# Chrome emits a spurious warning about browser_specific_settings
+| del(.browser_specific_settings)
