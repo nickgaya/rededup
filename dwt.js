@@ -1,3 +1,5 @@
+"use strict";
+
 const INV_SQRT_2 = 2**-0.5;
 
 /**

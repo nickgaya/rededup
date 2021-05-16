@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Image hash function enum.
  * @readonly
