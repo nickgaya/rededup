@@ -112,17 +112,17 @@ These tests use specific posts to verify the deduplication functionality.
 
 2. Deduplicate by URL
 
-    1. Navigate to https://old.reddit.com/by_id/t3_jyu5b2,t3_jysgvx,t3_jyu73g.
+    1. Navigate to https://old.reddit.com/by_id/t3_jyu5b2,t3_jysgvx,t3_jywerx.
 
     2. Verify that posts are collated as expected.
 
-        * Post order should be jyu5b2, jyu73g, jysgvx.
+        * Post order should be jyu5b2, jywerx, jysgvx.
         * jyu5b2 should have "(1 duplicate — show)" at end of tagline.
-        * jyu73g should be hidden.
+        * jywerx should be hidden.
 
     3. Verify that show/hide link works as expected.
 
-4. Deduplicate by URL (crosspost)
+3. Deduplicate by URL (crosspost)
 
     1. Navigate to https://old.reddit.com/by_id/t3_jyu5b2,t3_jyvuiz.
 
@@ -136,16 +136,16 @@ These tests use specific posts to verify the deduplication functionality.
 
 4. Deduplicate multiple
 
-    1. Navigate to https://old.reddit.com/by_id/t3_jrjed7,t3_jysgvx,t3_jyu5b2,t3_jrqhj4,t3_jo1qwh,t3_jyu73g,t3_jri2y8,t3_jyvuiz.
+    1. Navigate to https://old.reddit.com/by_id/t3_jrjed7,t3_jysgvx,t3_jyu5b2,t3_jrqhj4,t3_jo1qwh,t3_jywerx,t3_jri2y8,t3_jyvuiz.
 
     2. Verify that posts are collated as expected.
 
-        * Post order should be jrjed7, jrqhj4, jri2y8, jysgvx, jyu5b2, jyu73g,
+        * Post order should be jrjed7, jrqhj4, jri2y8, jysgvx, jyu5b2, jywerx,
           jyvuiz, jo1qwh.
         * jrjed7 should have "(2 duplicates — show)" at end of tagline.
         * jrqhj4 and jri2y8 should be hidden.
         * jyu5b2 should have "(2 duplicates — show)" at end of tagline.
-        * jyu73g and jyvuiz should be hidden.
+        * jywerx and jyvuiz should be hidden.
 
     3. Verify that both show/hide links work as expected.
 

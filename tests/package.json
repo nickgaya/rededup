@@ -1,0 +1,15 @@
+{
+  "name": "tests",
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^8.4.0",
+    "selenium-webdriver": "^4.0.0-beta.3",
+    "uuid": "^8.3.2"
+  },
+  "mocha": {
+    "ui": "tdd"
+  },
+  "scripts": {
+    "test": "mocha"
+  }
+}

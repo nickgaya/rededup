@@ -195,7 +195,10 @@ async function getLinkInfo(thing, pageType, settings) {
                 if (settings.showHashValues) {
                     const hashElt = document.createElement('code');
                     hashElt.textContent = bufToHex(linkInfo.thumbnailHash);
-                    getTagline(thing, pageType).append(' [', hashElt, ']');
+                    const spanElt = document.createElement('span');
+                    spanElt.classList.add('rededup-hash');
+                    spanElt.append(' [', hashElt, ']');
+                    getTagline(thing, pageType).append(spanElt);
                 }
             } catch (error) {
                 console.warn("Failed to get thumbnail hash", thumbnailImg,
@@ -267,6 +270,7 @@ class DupRecord {
         this.countElt = document.createElement('span');
         this.countElt.textContent = '0 duplicates';
         this.linkElt = document.createElement('a');
+        this.linkElt.classList.add('rededup-toggle');
         this.linkElt.textContent = this.showDuplicates ? 'hide' : 'show';
         this.linkElt.href = '#';
         const dupRecord = this;
@@ -281,7 +285,9 @@ class DupRecord {
             return false;
         });
         this.taglineElt = document.createElement('span');
-        this.taglineElt.append(' (', this.countElt, ' — ', this.linkElt, ')');
+        this.taglineElt.classList.add('rededup-tagline');
+        this.taglineElt.append(
+            ' (', this.countElt, ' \u2014 ', this.linkElt, ')');
         const tagline = getTagline(this.links[0], pageType);
         tagline.append(this.taglineElt);
     }
