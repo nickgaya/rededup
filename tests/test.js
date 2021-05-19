@@ -9,12 +9,6 @@ const uuid = require('uuid');
 const firefoxExtensionId = '{68f0c654-5a3d-423b-b846-2b3ab68d05dd}';
 const extensionUuid = uuid.v4();
 
-function sleep(milliseconds) {
-    return new Promise((resolve, reject) => {
-        setTimeout(resolve, milliseconds);
-    });
-}
-
 function arraysEqual(arr1, arr2) {
     if (arr1.length !== arr2.length) {
         return false;
@@ -74,7 +68,7 @@ class Link {
 async function loadByIds(driver, ids) {
     await driver.get(`https://old.reddit.com/by_id/${ids.join(',')}`);
     // XXX: Better way to wait for the extension to run?
-    await sleep(1000);
+    await driver.sleep(1000);
     const links = await Promise.all(
         (await driver.findElements({css: '#siteTable .link'}))
         .map(Link.fromElement))
@@ -180,7 +174,7 @@ async function openSettingsPage(driver) {
     await driver.get(`moz-extension://${extensionUuid}/options/index.html`);
 }
 
-suite('Selenium', function() {
+suite('Browser tests', function() {
     this.timeout(10000);
 
     let driver;
