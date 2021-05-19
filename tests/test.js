@@ -1,13 +1,17 @@
 const webdriver = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
 const firefox = require('selenium-webdriver/firefox');
 const {Origin} = require('selenium-webdriver/lib/input');
 
 const {assert} = require('chai');
 
+const path = require('path');
 const uuid = require('uuid');
 
 const firefoxExtensionId = '{68f0c654-5a3d-423b-b846-2b3ab68d05dd}';
 const extensionUuid = uuid.v4();
+
+const chromeExtensionId = 'dnnbdjbnhfojinfmmiiehamhkheifbbg';
 
 function arraysEqual(arr1, arr2) {
     if (arr1.length !== arr2.length) {
@@ -171,7 +175,15 @@ async function getVisibility(links) {
 }
 
 async function openSettingsPage(driver) {
-    await driver.get(`moz-extension://${extensionUuid}/options/index.html`);
+    if (driver instanceof firefox.Driver) {
+        await driver.get(
+            `moz-extension://${extensionUuid}/options/index.html`);
+    } else if (driver instanceof chrome.Driver) {
+        await driver.get(
+            `chrome-extension://${chromeExtensionId}/options/index.html`);
+    } else {
+        throw new Error(`Unable to determine type of driver: ${driver}`);
+    }
 }
 
 suite('Browser tests', function() {
@@ -180,22 +192,57 @@ suite('Browser tests', function() {
     let driver;
 
     suiteSetup(async function() {
-        const options = new firefox.Options();
-        if (process.env.BROWSER_GUI !== 'true') {
-            options.headless();
+        const firefoxOptions = new firefox.Options();
+        if (process.env.HEADLESS !== 'false') {
+            firefoxOptions.headless();
         }
-        options.setPreference('extensions.webextensions.uuids',
-                              JSON.stringify({[firefoxExtensionId]:
-                                              extensionUuid}))
+        firefoxOptions.setPreference('extensions.webextensions.uuids',
+                                     JSON.stringify({[firefoxExtensionId]:
+                                                     extensionUuid}))
+
+        // Note: Chrome doesn't currently support extensions in headless mode.
+        // https://stackoverflow.com/questions/45372066/
+        const chromeOptions = new chrome.Options();
+        if (process.env.HEADLESS !== 'false') {
+            // Chrome doesn't currently support extensions in headless mode.
+            // https://stackoverflow.com/questions/45372066/
+            // chromeOptions.headless();
+        }
+        {
+            const extPath = process.env.REDEDUP_PATH_CH;
+            if (extPath.endsWith('.zip') || extPath.endsWith('.crx')) {
+                // XXX: Due to a bug we need to specify the extension data
+                // rather than a path to the extension.
+                // https://github.com/SeleniumHQ/selenium/issues/6676
+                const io = require('selenium-webdriver/io')
+                const extData = await io.read(extPath);
+                chromeOptions.addExtensions(extData.toString('base64'))
+            } else {
+                chromeOptions.addArguments(`--load-extension=${extPath}`)
+            }
+        }
 
         driver = await new webdriver.Builder()
             .forBrowser('firefox')
-            .setFirefoxOptions(options)
+            .setFirefoxOptions(firefoxOptions)
+            .setChromeOptions(chromeOptions)
             .build();
-    });
 
-    suiteSetup(async function() {
-        await driver.installAddon(process.env.REDEDUP_PATH, true);
+        if (driver instanceof firefox.Driver) {
+            const extPath = process.env.REDEDUP_PATH_FX;
+            if (extPath.endsWith('.zip') || extPath.endsWith('.xpi')) {
+                await driver.installAddon(extPath, true);
+            } else {
+                // XXX: The installAddon method does not currently support
+                // unpacked extensions, so we use the low-level command API
+                // https://github.com/SeleniumHQ/selenium/issues/8357
+                const command = require(
+                    'selenium-webdriver/lib/command');
+                await driver.execute(new command.Command('install addon')
+                    .setParameter('path', path.resolve(extPath))
+                    .setParameter('temporary', true));
+            }
+        }
     });
 
     suite('deduplication', function() {
@@ -340,7 +387,7 @@ suite('Browser tests', function() {
             const actions = driver.actions();
             await actions.move({origin: elt, x:0, y:0})
                          .press()
-                         .move({origin: Origin.POINTER, x:-width/2, y:0})
+                         .move({origin: Origin.POINTER, x:Math.floor(-width/2), y:0})
                          .release()
                          .perform();
             assert.equal(await elt.getAttribute('value'), '0');

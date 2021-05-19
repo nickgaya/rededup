@@ -3,6 +3,7 @@
 ## Version 1.4
 - Auto-save domain settings on each change
 - Minor fixes and improvements
+- Add Chrome support in automated tests
 
 ## Version 1.3
 
