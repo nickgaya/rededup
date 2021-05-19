@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 1.4
+- Auto-save domain settings on each change
+
 ## Version 1.3
 
 - Add per-domain settings for deduplicating by thumbnail

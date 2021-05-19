@@ -311,8 +311,6 @@ suite('Selenium', function() {
             await elt.sendKeys('independent.co.uk');
             elt = await driver.findElement({id: 'domainInputButton'});
             await elt.click();
-            elt = await driver.findElement({id: 'domainSettingsSave'});
-            await elt.click();
 
             // Now posts should be collated by URL but not thumbnail
             await deduplicateTest(driver,

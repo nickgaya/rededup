@@ -22,13 +22,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const domainInputText = document.getElementById('domainInputText');
     const domainInputCheckbox = document.getElementById('domainInputCheckbox');
     const domainInputButton = document.getElementById('domainInputButton');
-    const domainSettingsSave = document.getElementById('domainSettingsSave');
-    const domainSettingsCancel =
-        document.getElementById('domainSettingsCancel');
-
-    let lastDomainSettingsLst = [];
+    const domainSettingsBack = document.getElementById('domainSettingsBack');
 
     const domainRegex = /^([a-zA-Z0-9-]{1,63}[.])*[a-zA-Z0-9-]{1,63}$/;
+
+    function saveDomainSettings() {
+        const domainSettingsLst = Array.from(domainTable.children, (row) => {
+            const domain = row.children[0].textContent;
+            const domainSettings = {
+                deduplicateThumbs: row.children[1].children[0].checked,
+            };
+            return [domain, domainSettings];
+        });
+        numDomains.textContent = domainSettingsLst.length;
+        browser.storage.local.set({domainSettings: domainSettingsLst});
+    }
 
     /** Check that a domain name is valid. */
     function isValidDomain(domain) {
@@ -84,6 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const cbox = document.createElement('input');
         cbox.type = 'checkbox';
         cbox.checked = domainSettings.deduplicateThumbs;
+        cbox.addEventListener('change', (event) => {
+            saveDomainSettings();
+        });
         cell2.append(cbox);
         row.append(cell2);
         const cell3 = document.createElement('td');
@@ -91,6 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
         button.textContent = 'Remove';
         button.addEventListener('click', (event) => {
             domainTable.removeChild(row);
+            saveDomainSettings();
         });
         cell3.append(button);
         row.append(cell3);
@@ -136,9 +148,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             ddByUrlOnly.checked = true;
         }
-        lastDomainSettingsLst = settings.domainSettings;
-        numDomains.textContent = lastDomainSettingsLst.length;
-        updateDomainSettingsTable(lastDomainSettingsLst);
+        const domainSettingsLst = settings.domainSettings;
+        numDomains.textContent = domainSettingsLst.length;
+        updateDomainSettingsTable(domainSettingsLst);
         if (settings.hashFunction === 'diffHash') {
             diffHash.checked = true;
         } else if (settings.hashFunction === 'waveletHash') {
@@ -199,28 +211,12 @@ document.addEventListener("DOMContentLoaded", () => {
             deduplicateThumbs: domainInputCheckbox.checked,
         };
         addDomainRow(domain, domainSettings);
+        saveDomainSettings();
         domainInputText.value = "";
         domainInputCheckbox.checked = false;
     });
 
-    domainSettingsSave.addEventListener('click', (event) => {
-        domainInputText.value = "";
-        domainInputCheckbox.checked = false;
-        lastDomainSettingsLst = Array.from(domainTable.children, (row) => {
-            const domain = row.children[0].textContent;
-            const domainSettings = {
-                deduplicateThumbs: row.children[1].children[0].checked,
-            };
-            return [domain, domainSettings];
-        });
-        numDomains.textContent = lastDomainSettingsLst.length;
-        browser.storage.local.set({domainSettings: lastDomainSettingsLst});
-        settingsDiv.style.display = '';
-        domainSettingsDiv.style.display = 'none';
-    });
-
-    domainSettingsCancel.addEventListener('click', (event) => {
-        updateDomainSettingsTable(lastDomainSettingsLst);
+    domainSettingsBack.addEventListener('click', (event) => {
         domainInputText.value = "";
         domainInputCheckbox.checked = false;
         settingsDiv.style.display = '';
