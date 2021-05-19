@@ -111,11 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /** Add a row to the domain table. */
     function addDomainRow(domain, domainSettings) {
-        const normalizedDomain = normalizeDomainName(domain);
-        if (!normalizedDomain) {
-            return;
-        }
-        const row = createDomainRow(normalizedDomain, domainSettings);
+        const row = createDomainRow(domain, domainSettings);
         const rowSortKey = row.dataset.sortKey;
         for (const otherRow of Array.from(domainTable.children)) {
             const otherSortKey = otherRow.dataset.sortKey;
@@ -206,12 +202,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     domainInputButton.addEventListener('click', (event) => {
-        const domain = domainInputText.value;
+        const domain = normalizeDomainName(domainInputText.value);
         const domainSettings = {
             deduplicateThumbs: domainInputCheckbox.checked,
         };
-        addDomainRow(domain, domainSettings);
-        saveDomainSettings();
+        if (domain) {
+            addDomainRow(domain, domainSettings);
+            saveDomainSettings();
+        }
         domainInputText.value = "";
         domainInputCheckbox.checked = false;
     });

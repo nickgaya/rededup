@@ -2,6 +2,7 @@
 
 ## Version 1.4
 - Auto-save domain settings on each change
+- Minor fixes and improvements
 
 ## Version 1.3
 
