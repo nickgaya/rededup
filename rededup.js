@@ -104,6 +104,7 @@ function getLinks(container, pageType) {
     let links;
     switch (pageType) {
         case PageType.LISTING_PAGE:
+        case PageType.LEGACY_SEARCH_PAGE:
             links = container.querySelectorAll('.thing.link');
             break;
         case PageType.SEARCH_PAGE:
