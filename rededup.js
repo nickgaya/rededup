@@ -63,9 +63,10 @@ function getPageInfo() {
         };
     } else if (document.body.classList.contains('combined-search-page')) {
         // Combined search page
+        const containers = document.body.querySelectorAll(
+            '.search-result-group');
         return {
-            container: document.body.querySelector(
-                '.content > .search-result-listing > .search-result-group'),
+            container: containers[containers.length - 1],
             pageType: PageType.SEARCH_PAGE,
         };
     } else if (document.body.classList.contains('search-page')) {
