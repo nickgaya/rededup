@@ -1,0 +1,15 @@
+version: "3"
+services:
+  test:
+    image: node
+    environment:
+      - SELENIUM_REMOTE_URL=http://selenium-hub:4444/wd/hub
+      - SELENIUM_BROWSER
+      - REDEDUP_PATH_FX
+      - REDEDUP_PATH_CH
+    volumes:
+      - ../build:/build:ro
+      - ../artifacts:/artifacts:ro
+      - .:/tests
+    working_dir: /tests
+    command: [ npm, test ]

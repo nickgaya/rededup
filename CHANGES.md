@@ -2,8 +2,10 @@
 
 ## Version 1.4
 - Auto-save domain settings on each change
+- Automated test improvements
+    - Add Chrome support
+    - Add docker-compose configuration
 - Minor fixes and improvements
-- Add Chrome support in automated tests
 
 ## Version 1.3
 
