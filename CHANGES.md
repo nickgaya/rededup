@@ -5,6 +5,7 @@
 - Automated test improvements
     - Add Chrome support
     - Add docker-compose configuration
+    - Run tests in both Firefox and Chrome by default
 - Minor fixes and improvements
 
 ## Version 1.3
