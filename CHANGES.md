@@ -8,6 +8,7 @@
     - Run tests in both Firefox and Chrome by default
     - Make headless mode optional rather than the default
     - Use a fresh browser instance per test case
+    - Make it easier to specify extension path
 - Minor fixes and improvements
 
 ## Version 1.3

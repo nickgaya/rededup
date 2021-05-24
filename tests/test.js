@@ -7,6 +7,7 @@ const {Origin} = require('selenium-webdriver/lib/input');
 
 const {assert} = require('chai');
 
+const fs = require('fs');
 const path = require('path');
 const uuid = require('uuid');
 
@@ -14,6 +15,36 @@ const firefoxExtensionId = '{68f0c654-5a3d-423b-b846-2b3ab68d05dd}';
 const extensionUuid = uuid.v4();
 
 const chromeExtensionId = 'dnnbdjbnhfojinfmmiiehamhkheifbbg';
+
+const [firefoxPath, chromePath] = (() => {
+    const version = process.env.REDEDUP_VERSION
+        || JSON.parse(fs.readFileSync('../manifest.json')).version;
+    const buildType = process.env.REDEDUP_BUILD_TYPE || 'unpacked';
+
+    function getRededupPath(browser, envPath, suffix, ext) {
+        if (envPath) {
+            return envPath;
+        }
+        switch (buildType) {
+            case 'unpacked':
+                return `../build/rededup-${version}/${browser}`;
+            case 'zip':
+                return `../artifacts/rededup-${version}-${suffix}.zip`;
+            case 'signed':
+                return `../artifacts/rededup-${version}-${suffix}.${ext}`;
+            default:
+                throw new Error(`Invalid build type: ${buildType}`);
+        }
+    }
+
+    return [
+        getRededupPath('firefox', process.env.REDEDUP_PATH_FX, 'fx', 'xpi'),
+        getRededupPath('chrome', process.env.REDEDUP_PATH_CH, 'ch', 'crx'),
+    ].map(pth => path.resolve(pth));
+})();
+
+console.debug("firefoxPath:", firefoxPath);
+console.debug("chromePath:", chromePath);
 
 function getBrowsers() {
     return (process.env.SELENIUM_BROWSER || 'firefox,chrome')
@@ -64,9 +95,8 @@ for (const browserSpec of getBrowsers()) {
                 .setFirefoxOptions(firefoxOptions)
                 .build();
 
-            const extPath = process.env.REDEDUP_PATH_FX;
-            if (extPath.endsWith('.zip') || extPath.endsWith('.xpi')) {
-                await driver.installAddon(extPath, true);
+            if (firefoxPath.endsWith('.zip') || firefoxPath.endsWith('.xpi')) {
+                await driver.installAddon(firefoxPath, true);
             } else {
                 // XXX: The installAddon method does not currently support
                 // unpacked extensions, so we use the low-level command API
@@ -74,7 +104,7 @@ for (const browserSpec of getBrowsers()) {
                 const command = require(
                     'selenium-webdriver/lib/command');
                 await driver.execute(new command.Command('install addon')
-                    .setParameter('path', path.resolve(extPath))
+                    .setParameter('path', firefoxPath)
                     .setParameter('temporary', true));
             }
         }
@@ -84,15 +114,14 @@ for (const browserSpec of getBrowsers()) {
             // Note: Chrome doesn't currently support extensions in headless
             // mode, so ignore process.env.HEADLESS
             // https://stackoverflow.com/questions/45372066/
-            const extPath = process.env.REDEDUP_PATH_CH;
-            if (extPath.endsWith('.zip') || extPath.endsWith('.crx')) {
-                chromeOptions.addExtensions(extPath);
+            if (chromePath.endsWith('.zip') || chromePath.endsWith('.crx')) {
+                chromeOptions.addExtensions(chromePath);
                 // XXX: Workaround for a bug with chrome options
                 // https://github.com/SeleniumHQ/selenium/issues/6676
                 const symbols = require('selenium-webdriver/lib/symbols');
                 chromeOptions[symbols.serialize]();
             } else {
-                chromeOptions.addArguments(`--load-extension=${extPath}`)
+                chromeOptions.addArguments(`--load-extension=${chromePath}`)
             }
             driver = await new webdriver.Builder()
                 .setChromeOptions(chromeOptions)
