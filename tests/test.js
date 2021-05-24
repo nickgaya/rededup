@@ -188,21 +188,17 @@ for (const browser of getBrowsers()) {
 
         suiteSetup(async function() {
             const firefoxOptions = new firefox.Options();
-            if (process.env.HEADLESS !== 'false') {
+            if (process.env.HEADLESS === 'true') {
                 firefoxOptions.headless();
             }
             firefoxOptions.setPreference('extensions.webextensions.uuids',
                                          JSON.stringify({[firefoxExtensionId]:
                                                          extensionUuid}))
 
-            // Note: Chrome doesn't currently support extensions in headless mode.
-            // https://stackoverflow.com/questions/45372066/
             const chromeOptions = new chrome.Options();
-            if (process.env.HEADLESS !== 'false') {
-                // Chrome doesn't currently support extensions in headless mode.
-                // https://stackoverflow.com/questions/45372066/
-                // chromeOptions.headless();
-            }
+            // Note: Chrome doesn't currently support extensions in headless
+            // mode, so ignore process.env.HEADLESS
+            // https://stackoverflow.com/questions/45372066/
             {
                 const extPath = process.env.REDEDUP_PATH_CH;
                 if (extPath.endsWith('.zip') || extPath.endsWith('.crx')) {

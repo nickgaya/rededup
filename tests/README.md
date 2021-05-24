@@ -33,7 +33,6 @@ installed.
 
 Set environment variables as above and run `npm test` to invoke the tests.
 
-By default, the Firefox tests run in "headless" mode. To enable the browser
-GUI, set `HEADLESS=false` in your environment. Chrome does not support
-extensions in headless mode so the Chrome tests always run with the GUI
-enabled.
+You can disable the browser GUI for Firefox by setting `HEADLESS=true`. This
+setting is ignored for the Chrome tests, as Chrome does not support extensions
+in headless mode.

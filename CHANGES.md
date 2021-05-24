@@ -6,6 +6,7 @@
     - Add Chrome support
     - Add docker-compose configuration
     - Run tests in both Firefox and Chrome by default
+    - Make headless mode optional rather than the default
 - Minor fixes and improvements
 
 ## Version 1.3
