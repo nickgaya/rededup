@@ -84,12 +84,11 @@ for (const browserSpec of getBrowsers()) {
             // https://stackoverflow.com/questions/45372066/
             const extPath = process.env.REDEDUP_PATH_CH;
             if (extPath.endsWith('.zip') || extPath.endsWith('.crx')) {
-                // XXX: Due to a bug we need to specify the extension data
-                // rather than a path to the extension.
+                chromeOptions.addExtensions(extPath);
+                // XXX: Workaround for a bug with chrome options
                 // https://github.com/SeleniumHQ/selenium/issues/6676
-                const io = require('selenium-webdriver/io')
-                const extData = await io.read(extPath);
-                chromeOptions.addExtensions(extData.toString('base64'))
+                const symbols = require('selenium-webdriver/lib/symbols');
+                chromeOptions[symbols.serialize]();
             } else {
                 chromeOptions.addArguments(`--load-extension=${extPath}`)
             }
