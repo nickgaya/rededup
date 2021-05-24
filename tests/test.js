@@ -29,7 +29,9 @@ for (const browserSpec of getBrowsers()) {
 
         let driver;
 
-        suiteSetup(async function() {
+        // Create a new driver per test as recommended by the Selenium docs
+        // https://www.selenium.dev/documentation/en/guidelines_and_recommendations/fresh_browser_per_test/
+        setup(async function() {
             process.env.SELENIUM_BROWSER = browserSpec;
             switch (browser) {
                 case 'firefox':
@@ -43,7 +45,7 @@ for (const browserSpec of getBrowsers()) {
             }
         });
 
-        suiteTeardown(async function() {
+        teardown(async function() {
             if (driver) {
                 await driver.quit();
             }
@@ -172,12 +174,6 @@ for (const browserSpec of getBrowsers()) {
         });
 
         suite('settings', function() {
-
-            teardown(async function() {
-                await openSettingsPage();
-                const resetButton = driver.findElement({id: 'reset'});
-                await resetButton.click();
-            });
 
             test('deduplicate by', async function() {
                 // Posts should be collated

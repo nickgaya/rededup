@@ -7,6 +7,7 @@
     - Add docker-compose configuration
     - Run tests in both Firefox and Chrome by default
     - Make headless mode optional rather than the default
+    - Use a fresh browser instance per test case
 - Minor fixes and improvements
 
 ## Version 1.3
