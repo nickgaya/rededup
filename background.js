@@ -18,7 +18,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         const url = new URL(message.url, sender.url);
         // For security, make sure the requested domain is valid
         if (!url.hostname.endsWith('.thumbs.redditmedia.com')) {
-            throw "Invalid domain";
+            throw new Error("Invalid domain");
         }
         // Also make sure to use HTTPS
         url.protocol = 'https:';

@@ -42,7 +42,7 @@ class TrieMap {
      */
     put(keys, value) {
         if (value == null) {
-            throw 'Value must not be null or undefined';
+            throw new Error('Value must not be null or undefined');
         }
         let node = this;
         for (const key of keys) {

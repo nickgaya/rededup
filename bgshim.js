@@ -26,7 +26,8 @@ async function fetchImageAndGetHash(url, hashFunction) {
     const response = await browser.runtime.sendMessage(
         {url: url, hashFunction: hashFunction});
     if (!response.hash) {
-        throw `Background script error: ${response.error || "unknown"}`;
+        throw new Error(
+            `Background script error: ${response.error || "unknown"}`);
     }
     return base64ToBuf(response.hash);
 }

@@ -111,7 +111,7 @@ function getLinks(container, pageType) {
             links = container.querySelectorAll('.search-result-link');
             break;
         default:
-            throw "Invalid page type";
+            throw new Error("Invalid page type");
     }
     for (const link of links) {
         link[indexSymbol] = nextIndex++;
@@ -133,7 +133,7 @@ function getTagline(thing, pageType) {
         case PageType.SEARCH_PAGE:
             return thing.querySelector('.search-result-meta');
         default:
-            throw "Invalid page type";
+            throw new Error("Invalid page type");
     }
 }
 
@@ -180,7 +180,7 @@ async function getLinkInfo(thing, pageType, settings) {
             }
             break;
         default:
-            throw "Invalid page type";
+            throw new Error("Invalid page type");
     }
 
 
@@ -294,7 +294,7 @@ class DupRecord {
 
     updateLinks(links, pageType) {
         if (links[0] !== this.links[0]) {
-            throw "Primary link mismatch";
+            throw new Error("Primary link mismatch");
         }
         this.links = links;
         let prev = links[0];
