@@ -43,9 +43,6 @@ const [firefoxPath, chromePath] = (() => {
     ].map(pth => path.resolve(pth));
 })();
 
-console.debug("firefoxPath:", firefoxPath);
-console.debug("chromePath:", chromePath);
-
 function getBrowsers() {
     return (process.env.SELENIUM_BROWSER || 'firefox,chrome')
         .split(',')
@@ -59,6 +56,17 @@ for (const browserSpec of getBrowsers()) {
         this.timeout(10000);
 
         let driver;
+
+        suiteSetup(function() {
+            switch (browser) {
+                case 'firefox':
+                    console.debug("firefoxPath:", firefoxPath);
+                    break;
+                case 'chrome':
+                    console.debug("chromePath:", chromePath);
+                    break;
+            }
+        });
 
         // Create a new driver per test as recommended by the Selenium docs
         // https://www.selenium.dev/documentation/en/guidelines_and_recommendations/fresh_browser_per_test/
@@ -91,6 +99,7 @@ for (const browserSpec of getBrowsers()) {
                 'extensions.webextensions.uuids',
                 JSON.stringify(
                     {[firefoxExtensionId]: extensionUuid}));
+
             driver = await new webdriver.Builder()
                 .setFirefoxOptions(firefoxOptions)
                 .build();
@@ -123,6 +132,7 @@ for (const browserSpec of getBrowsers()) {
             } else {
                 chromeOptions.addArguments(`--load-extension=${chromePath}`)
             }
+
             driver = await new webdriver.Builder()
                 .setChromeOptions(chromeOptions)
                 .build();
