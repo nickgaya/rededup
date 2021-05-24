@@ -317,8 +317,10 @@ for (const browserSpec of getBrowsers()) {
                 const elt = await driver.findElement({id: 'showHashValues'});
                 await elt.click();
 
-                const links = await loadByIds(['t3_jyu5b2', 't3_ncjf1w']);
-                await verifyDuplicates(links, ['t3_jyu5b2', 't3_ncjf1w']);
+                const [debugInfo, links] = await loadByIds(
+                    ['t3_jyu5b2', 't3_ncjf1w']);
+                await verifyDuplicates(debugInfo, links,
+                                       ['t3_jyu5b2', 't3_ncjf1w']);
 
                 assert.isNull(await links[0].getHash(),
                               "Expect no thumbnail hash element for post "
@@ -385,8 +387,8 @@ for (const browserSpec of getBrowsers()) {
         }
 
         async function deduplicateTest(ids, expected, showHide = false) {
-            const links = await loadByIds(ids);
-            await verifyDuplicates(links, expected);
+            const [debugInfo, links] = await loadByIds(ids);
+            await verifyDuplicates(debugInfo, links, expected);
             if (showHide) {
                 let idx = 0;
                 for (const item of ids) {
@@ -404,13 +406,15 @@ for (const browserSpec of getBrowsers()) {
 
         async function loadByIds(ids) {
             await driver.get(`https://old.reddit.com/by_id/${ids.join(',')}`);
-            await waitForExtension();
+            const debugInfo = await waitForExtension();
+            assert.equal(debugInfo.pageType, 'listing page');
+            assert.equal(debugInfo.numLinks, ids.length);
             const links = await Promise.all(
                 (await driver.findElements({css: '#siteTable .link'}))
                 .map(Link.fromElement))
             assert.equal(links.length, ids.length,
                          "Expect number of links to match request");
-            return links;
+            return [debugInfo, links];
         }
     });
 }
@@ -459,7 +463,17 @@ function eltOrNull(promise) {
     });
 }
 
-async function verifyDuplicates(links, expected) {
+async function verifyDuplicates(debugInfo, links, expected) {
+    const expectedStats = {numWithDups: 0, totalDups: 0};
+    for (const item of expected) {
+        if (Array.isArray(item)) {
+            expectedStats.numWithDups++;
+            expectedStats.totalDups += (item.length - 1);
+        }
+    }
+    assert.deepEqual(debugInfo.stats, expectedStats,
+                     "Expect stats to match expected");
+
     let i = 0;
     for (const item of expected) {
         let link = links[i++];
