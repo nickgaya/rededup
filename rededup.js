@@ -858,7 +858,24 @@ async function processBatch(links, pageType, first, dupFinder, settings) {
     const batchStats = dupFinder.processLinks(linkInfos);
     const t2 = performance.now();
     logStats(dupFinder.stats, batchStats, t1-t0, t2-t1);
+    debugInfo.stats = {
+        numWithDups: dupFinder.stats.numWithDups,
+        totalDups: dupFinder.stats.totalDups,
+    };
 }
+
+/** Mechanism for exposing debug info for testing. */
+let debugInfo = {};
+window.addEventListener('message', (event) => {
+    if (event.source === window
+            && event.data
+            && event.data.type === 'rededup.getDebugInfo') {
+        window.postMessage({
+            type: 'rededup.debugInfo',
+            debugInfo: debugInfo,
+        }, window.origin);
+    }
+});
 
 /**
  * Main content script entry point. Queries the DOM for links and performs
@@ -866,18 +883,24 @@ async function processBatch(links, pageType, first, dupFinder, settings) {
  */
 async function main() {
     const {container, pageType} = getPageInfo();
+    debugInfo.pageType = pageType;
     if (!container) {
         console.log("Not processing page", `(${pageType})`);
         return;
     }
     const settings = await getSettings();
     const dupFinder = new DuplicateFinder(pageType, settings);
+
+    debugInfo.pending = 0;
     const links = getLinks(container, pageType);
+    debugInfo.numLinks = links.length;
     if (!links.length) {
         console.log("No links found", `(${pageType})`);
     } else {
+        debugInfo.pending += 1;
         processBatch(links, pageType, true, dupFinder, settings)
-            .catch((error) => console.error(error));
+            .catch((error) => console.error(error))
+            .finally(() => { debugInfo.pending -= 1; });
     }
 
     // Monitor container for new links to process.
@@ -890,12 +913,17 @@ async function main() {
                 if (!links.length) {
                     continue;
                 }
+                debugInfo.numLinks += links.length;
+                debugInfo.pending += 1;
                 processBatch(links, pageType, false, dupFinder, settings)
-                    .catch((error) => console.error(error));
+                    .catch((error) => console.error(error))
+                    .finally(() => { debugInfo.pending -= 1; });
             }
         }
     });
     observer.observe(container, {childList: true});
 }
 
-main().catch((error) => console.error(error));
+main()
+    .then(() => { debugInfo.initialized = true; })
+    .catch((error) => console.error(error));

@@ -343,6 +343,47 @@ for (const browserSpec of getBrowsers()) {
             }
         });
 
+        /** Wait for the extension to initialize. */
+        function waitForExtension() {
+            return driver.wait(async () => {
+                const result = await getDebugInfo();
+                if (!result.debugInfo) {
+                    throw new Error(`getDebugInfo failed: ${result.error}`);
+                }
+                const debugInfo = result.debugInfo;
+                return debugInfo.initialized
+                    && !debugInfo.pending
+                    && debugInfo;
+            }, 5000);
+        }
+
+        function getDebugInfo() {
+            return driver.executeAsyncScript(function() {
+                'use strict';
+                const callback = arguments[0];
+                try {
+                    let timeoutId;
+                    function listener(event) {
+                        if (event.source === window
+                                && event.data
+                                && event.data.type === 'rededup.debugInfo') {
+                            window.clearTimeout(timeoutId);
+                            window.removeEventListener('message', listener);
+                            callback({debugInfo: event.data.debugInfo});
+                        }
+                    }
+                    window.addEventListener('message', listener);
+                    timeoutId = window.setTimeout(() => {
+                        window.removeEventListener('message', listener);
+                        callback({error: 'timeout'});
+                    }, 1000);
+                    window.postMessage({type: 'rededup.getDebugInfo'}, '*');
+                } catch (error) {
+                    callback({error: error.message});
+                }
+            });
+        }
+
         async function deduplicateTest(ids, expected, showHide = false) {
             const links = await loadByIds(ids);
             await verifyDuplicates(links, expected);
@@ -363,8 +404,7 @@ for (const browserSpec of getBrowsers()) {
 
         async function loadByIds(ids) {
             await driver.get(`https://old.reddit.com/by_id/${ids.join(',')}`);
-            // XXX: Better way to wait for the extension to run?
-            await driver.sleep(1000);
+            await waitForExtension();
             const links = await Promise.all(
                 (await driver.findElements({css: '#siteTable .link'}))
                 .map(Link.fromElement))

@@ -9,6 +9,7 @@
     - Make headless mode optional rather than the default
     - Use a fresh browser instance per test case
     - Make it easier to specify extension path
+    - Add mechanism for tests to query info from content script
 - Minor fixes and improvements
 
 ## Version 1.3
