@@ -325,10 +325,10 @@ function getWaveletHash(img) {
  */
 function getImageHash(img, hashFunction) {
     if (!img.complete) {
-        throw "Image not complete";
+        throw new Error("Image not complete");
     }
     if (img.naturalWidth === 0) {
-        throw "Image broken";
+        throw new Error("Image broken");
     }
 
     switch (hashFunction) {
@@ -339,7 +339,7 @@ function getImageHash(img, hashFunction) {
         case HashFunction.WAVELET_HASH:
             return getWaveletHash(img);
         default:
-            throw "Invalid hash function";
+            throw new Error("Invalid hash function");
     }
 }
 
