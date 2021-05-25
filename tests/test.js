@@ -138,6 +138,115 @@ for (const browserSpec of getBrowsers()) {
                 .build();
         }
 
+        suite('page type', function() {
+            test('front page', async function() {
+                await testListingPage('/');
+            });
+
+            test('subreddit', async function() {
+                await testListingPage('/r/news');
+            });
+
+            test('multireddit', async function() {
+                await testListingPage('/r/news+worldnews');
+            });
+
+            test('user overview', async function() {
+                await testListingPage('/u/Andromeda321');
+            });
+
+            test('user submissions', async function() {
+                await testListingPage('/u/Andromeda321/submitted/');
+            });
+
+            test('comments page', async function() {
+                await testSkippedPage('/r/news/comments/njxwnb',
+                                      'single page');
+            });
+
+            test('duplicates page', async function() {
+                await testSkippedPage('/r/news/duplicates/njxwnb',
+                                      'single page');
+            });
+
+            test('new reddit', async function() {
+                await testSkippedPage('https://www.reddit.com',
+                                      'no body class');
+            });
+
+            test('search page', async function() {
+                await testSearchPage('/search?q=example');
+            });
+
+            test('legacy search page', async function() {
+                await testListingPage(
+                    '/search?feature=legacy_search&q=example');
+            });
+
+            function testListingPage(url) {
+                return testPageWithLinks(url, 'listing page',
+                    '#siteTable .link');
+            }
+
+            function testSearchPage(url) {
+                return testPageWithLinks(url, 'search page',
+                    '.search-result-listing .search-result-link');
+            }
+
+            async function testPageWithLinks(url, pageType, selector) {
+                await driver.get(resolve(url));
+                const debugInfo = await waitForExtension();
+                assert.equal(debugInfo.pageType, pageType);
+                const links = await Promise.all(
+                    (await driver.findElements({css: selector}))
+                    .map(Link.fromElement));
+                assert.isAbove(links.length, 0, "Expect at least one link");
+                assert.equal(debugInfo.numLinks, links.length,
+                             "Expect extension to find all links");
+                assert.isNotNull(debugInfo.stats,
+                                 "Expect debugInfo to contain stats");
+                const observedStats = {numWithDups: 0, totalDups: 0};
+                let i = 0;
+                while (i < links.length) {
+                    const link = links[i++];
+                    // Link either has no duplicates, or is primary link with
+                    // duplicates -- in either case, should be visible
+                    assert(await link.isVisible(),
+                           `Expect link ${link.id} to be visible`);
+                    const tagline = await link.getTagline();
+                    if (tagline !== null) {
+                        observedStats.numWithDups++;
+                        const numDups = await link.getDupCount();
+                        assert.isAbove(numDups, 0,
+                                       "Expect at least one duplicate for "
+                                       + `link with tagline: ${link.id}`);
+                        observedStats.totalDups += numDups;
+                        await verifyLinkWithDuplicates(link, numDups);
+                        const dupLinks = [];
+                        for (let j = 0; j < numDups; j++) {
+                            const dupLink = links[i++];
+                            dupLinks.push(dupLink);
+                            await verifyLinkHidden(dupLink);
+                        }
+                        await verifyShowHide(link, ...dupLinks);
+                    }
+                }
+                assert.deepEqual(debugInfo.stats, observedStats,
+                                 "Expect stats to match observed");
+            }
+
+            async function testSkippedPage(url, pageType) {
+                await driver.get(resolve(url));
+                const debugInfo = await waitForExtension();
+                assert.equal(debugInfo.pageType, pageType);
+                assert(debugInfo.ignored, "Expect page to be ignored");
+            }
+
+            function resolve(urlOrPath) {
+                return new URL(urlOrPath, 'https://old.reddit.com').href;
+            }
+        });
+
         suite('deduplication', function() {
             test('deduplicate by thumbnail', async function() {
                 await deduplicateTest(
@@ -349,10 +458,10 @@ for (const browserSpec of getBrowsers()) {
         function waitForExtension() {
             return driver.wait(async () => {
                 const result = await getDebugInfo();
-                if (!result.debugInfo) {
-                    throw new Error(`getDebugInfo failed: ${result.error}`);
-                }
+                assert.isUndefined(result.error, "getDebugInfo() error");
                 const debugInfo = result.debugInfo;
+                assert.isOk(debugInfo);
+                assert.isUndefined(debugInfo.initError, "Error in main()");
                 return debugInfo.initialized
                     && !debugInfo.pending
                     && debugInfo;
@@ -411,7 +520,7 @@ for (const browserSpec of getBrowsers()) {
             assert.equal(debugInfo.numLinks, ids.length);
             const links = await Promise.all(
                 (await driver.findElements({css: '#siteTable .link'}))
-                .map(Link.fromElement))
+                .map(Link.fromElement));
             assert.equal(links.length, ids.length,
                          "Expect number of links to match request");
             return [debugInfo, links];
@@ -437,9 +546,16 @@ class Link {
     async getTagline() {
         if (this.tagline === undefined) {
             this.tagline = await eltOrNull(this.element.findElement(
-                {css: '.tagline .rededup-tagline'}));
+                {css: '.rededup-tagline'}));
         }
         return this.tagline;
+    }
+
+    async getDupCount() {
+        const tagline = await this.getTagline();
+        const countElt = await tagline.findElement(
+            {css: '.rededup-dup-count'});
+        return parseInt(await countElt.getText(), 10);
     }
 
     async getToggle() {
@@ -449,7 +565,7 @@ class Link {
 
     async getHash() {
         return await eltOrNull(this.element.findElement(
-                {css: '.tagline .rededup-hash'}));
+                {css: '.rededup-hash'}));
     }
 }
 

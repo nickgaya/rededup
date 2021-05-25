@@ -268,6 +268,7 @@ class DupRecord {
      */
     initTagline(pageType) {
         this.countElt = document.createElement('span');
+        this.countElt.classList.add('rededup-dup-count');
         this.countElt.textContent = '0 duplicates';
         this.linkElt = document.createElement('a');
         this.linkElt.classList.add('rededup-toggle');
@@ -885,6 +886,7 @@ async function main() {
     const {container, pageType} = getPageInfo();
     debugInfo.pageType = pageType;
     if (!container) {
+        debugInfo.ignored = true;
         console.log("Not processing page", `(${pageType})`);
         return;
     }
@@ -926,4 +928,7 @@ async function main() {
 
 main()
     .then(() => { debugInfo.initialized = true; })
-    .catch((error) => console.error(error));
+    .catch((error) => {
+        console.error(error);
+        debugInfo.initError = String(error);
+    });

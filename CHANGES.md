@@ -10,6 +10,7 @@
     - Use a fresh browser instance per test case
     - Make it easier to specify extension path
     - Add mechanism for tests to query info from content script
+    - Add test suite for page type
 - Minor fixes and improvements
 
 ## Version 1.3
