@@ -458,6 +458,10 @@ for (const browserSpec of getBrowsers()) {
         function waitForExtension() {
             return driver.wait(async () => {
                 const result = await getDebugInfo();
+                assert.isOk(result);
+                if (result.timeout) {
+                    return null;
+                }
                 assert.isUndefined(result.error, "getDebugInfo() error");
                 const debugInfo = result.debugInfo;
                 assert.isOk(debugInfo);
@@ -486,8 +490,8 @@ for (const browserSpec of getBrowsers()) {
                     window.addEventListener('message', listener);
                     timeoutId = window.setTimeout(() => {
                         window.removeEventListener('message', listener);
-                        callback({error: 'timeout'});
-                    }, 1000);
+                        callback({timeout: true});
+                    }, 100);
                     window.postMessage({type: 'rededup.getDebugInfo'}, '*');
                 } catch (error) {
                     callback({error: error.message});
