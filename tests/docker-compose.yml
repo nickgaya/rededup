@@ -1,0 +1,31 @@
+version: "3"
+services:
+  chrome:
+    image: selenium/node-chrome:4
+    shm_size: '2gb'
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+    volumes:
+      - ../build:/rededup/build:ro
+      - ../artifacts:/rededup/artifacts:ro
+
+  firefox:
+    image: selenium/node-firefox:4
+    shm_size: '2gb'
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+    volumes:
+      - ../build:/rededup/build:ro
+      - ../artifacts:/rededup/artifacts:ro
+
+  selenium-hub:
+    image: selenium/hub:4
+    container_name: selenium-hub

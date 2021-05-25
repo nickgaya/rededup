@@ -4,6 +4,15 @@
 - Auto-save domain settings on each change
 - Fix bug preventing processing of search results
 - Fix bug with legacy search page handling
+- Automated test improvements
+    - Add Chrome support
+    - Add docker-compose configuration
+    - Run tests in both Firefox and Chrome by default
+    - Make headless mode optional rather than the default
+    - Use a fresh browser instance per test case
+    - Make it easier to specify extension path
+    - Add mechanism for tests to query info from content script
+    - Add test suite for page type
 - Minor fixes and improvements
 
 ## Version 1.3
