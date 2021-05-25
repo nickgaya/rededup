@@ -445,13 +445,27 @@ for (const browserSpec of getBrowsers()) {
                              "Expect hash text to be 16 hex digits in "
                              + "brackets");
             });
+        });
 
-            async function openSettingsPage() {
-                await driver.get({
-                    firefox: `moz-extension://${extensionUuid}`,
-                    chrome: `chrome-extension://${chromeExtensionId}`,
-                }[browser] + '/options/index.html');
-            }
+        suite('bugfixes', function() {
+            suite('blank thumbnails', function() {
+                for (const [name, eltId] of [['dct', 'dctHash'],
+                                             ['difference', 'diffHash'],
+                                             ['wavelet', 'waveletHash']]) {
+                    test(`${name} hash`, async function() {
+                        // Select hash function
+                        await openSettingsPage();
+                        const elt = await driver.findElement({id: eltId});
+                        await elt.click();
+
+                        // Verify that posts with solid-color thumbnails are not
+                        // coalesced, as these tend to be false positives
+                        await deduplicateTest(
+                            ['t3_nk4opn', 't3_nk30iz'],
+                            ['t3_nk4opn', 't3_nk30iz']);
+                    });
+                }
+            });
         });
 
         /** Wait for the extension to initialize. */
@@ -466,6 +480,8 @@ for (const browserSpec of getBrowsers()) {
                 const debugInfo = result.debugInfo;
                 assert.isOk(debugInfo);
                 assert.isUndefined(debugInfo.initError, "Error in main()");
+                assert.isUndefined(debugInfo.lastBatchError,
+                                   "Error in processBatch()");
                 return debugInfo.initialized
                     && !debugInfo.pending
                     && debugInfo;
@@ -528,6 +544,13 @@ for (const browserSpec of getBrowsers()) {
             assert.equal(links.length, ids.length,
                          "Expect number of links to match request");
             return [debugInfo, links];
+        }
+
+        async function openSettingsPage() {
+            await driver.get({
+                firefox: `moz-extension://${extensionUuid}`,
+                chrome: `chrome-extension://${chromeExtensionId}`,
+            }[browser] + '/options/index.html');
         }
     });
 }

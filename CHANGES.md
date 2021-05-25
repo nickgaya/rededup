@@ -13,6 +13,7 @@
     - Make it easier to specify extension path
     - Add mechanism for tests to query info from content script
     - Add test suite for page type
+- Ignore blank thumbnails when deduplicating
 - Minor fixes and improvements
 
 ## Version 1.3

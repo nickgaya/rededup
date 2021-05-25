@@ -582,6 +582,15 @@ function linkIndexComparator(link1, link2) {
     return link1[indexSymbol] - link2[indexSymbol];
 }
 
+// Set of thumbnail hashes that are likely to indicate a blank or solid-color
+// image. We ignore thumbnails with these hash values to avoid false positives.
+const hashesToIgnore = new Set([
+    new Uint8Array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    new Uint8Array([0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    new Uint8Array([0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+    new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+].map(u8a => bufToString(u8a.buffer)));
+
 /**
  * Stats object.
  *
@@ -684,8 +693,11 @@ class DuplicateFinder {
      * @param {Set<DSNode>} merged Set of merged nodes to update
      */
     updateThumbMap(linkInfo, node, merged) {
-        const thumbMap = this.getThumbMap(linkInfo.domain);
         const hashStr = bufToString(linkInfo.thumbnailHash);
+        if (hashesToIgnore.has(hashStr)) {
+            return;
+        }
+        const thumbMap = this.getThumbMap(linkInfo.domain);
         if (thumbMap.has(hashStr)) {
             // Exact hash match, merge with existing node.
             this.mergeDsNodes(thumbMap.get(hashStr), node, merged);
@@ -901,7 +913,10 @@ async function main() {
     } else {
         debugInfo.pending += 1;
         processBatch(links, pageType, true, dupFinder, settings)
-            .catch((error) => console.error(error))
+            .catch((error) => {
+                console.error(error);
+                debugInfo.lastBatchError = String(error);
+            })
             .finally(() => { debugInfo.pending -= 1; });
     }
 
@@ -918,7 +933,10 @@ async function main() {
                 debugInfo.numLinks += links.length;
                 debugInfo.pending += 1;
                 processBatch(links, pageType, false, dupFinder, settings)
-                    .catch((error) => console.error(error))
+                    .catch((error) => {
+                        console.error(error);
+                        debugInfo.lastBatchError = String(error);
+                    })
                     .finally(() => { debugInfo.pending -= 1; });
             }
         }
