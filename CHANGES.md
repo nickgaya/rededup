@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.5
+
+- Fix thumbnail deduplication for images served from preview.redd.it and
+  external-preview.redd.it
+
 ## Version 1.4
 - Auto-save domain settings on each change
 - Fix bug preventing processing of search results

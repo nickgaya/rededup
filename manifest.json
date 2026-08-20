@@ -21,6 +21,8 @@
 
   "permissions": [
     "*://*.thumbs.redditmedia.com/*",
+    "*://preview.redd.it/*",
+    "*://external-preview.redd.it/*",
     "storage"
   ],
 
