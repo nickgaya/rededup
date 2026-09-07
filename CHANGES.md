@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 1.6 (unreleased)
+- Add Firefox data collection permissions in manifest (no data collection)
+
 ## Version 1.5
 
 - Fix thumbnail deduplication for images served from preview.redd.it and

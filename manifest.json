@@ -2,7 +2,7 @@
   "manifest_version": 2,
 
   "name": "Reddit Deduplicator",
-  "version": "1.5",
+  "version": "1.6",
 
   "author": "Nicholas Gaya",
   "description": "Hide duplicate posts on pre-redesign Reddit.",
@@ -10,7 +10,10 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id": "{68f0c654-5a3d-423b-b846-2b3ab68d05dd}"
+      "id": "{68f0c654-5a3d-423b-b846-2b3ab68d05dd}",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
 
