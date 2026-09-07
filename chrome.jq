@@ -1,9 +1,15 @@
 # JQ script to modify the manifest for Chrome
 
+# Update manifest version
+(.manifest_version = 3)
+
+# Separate host permissions from permissions
+| (.host_permissions = [.permissions[] | select(startswith("*://"))])
+| del(.permissions[] | select(startswith("*://")))
+
 # Add background scripts
-(.background |= {
+| (.background |= {
   "scripts": [
-    "browser-polyfill.js",
     "dct.js",
     "dwt.js",
     "phash.js",
@@ -14,7 +20,6 @@
 
 # Update content scripts
 | (.content_scripts[0].js =  [
-    "browser-polyfill.js",
     "bgshim.js",
     "settings.js",
     "rededup.js"

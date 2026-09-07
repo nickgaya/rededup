@@ -4,6 +4,9 @@
 
 - Fix thumbnail deduplication for images served from preview.redd.it and
   external-preview.redd.it
+- Update build for Chrome
+    - Use Manifest V3
+    - Remove webextension polyfill, no longer needed
 
 ## Version 1.4
 - Auto-save domain settings on each change

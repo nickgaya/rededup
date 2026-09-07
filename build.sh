@@ -45,9 +45,6 @@ CH_FILES=(
     icons/icon128.png
 )
 
-# From https://github.com/mozilla/webextension-polyfill/releases/
-PF_URL='https://unpkg.com/webextension-polyfill@0.7.0/dist/browser-polyfill.js'
-
 ff=true
 ch=true
 pkg=false
@@ -110,15 +107,6 @@ if $ch; then
     rsync -R "${CH_FILES[@]}" "${ch_build_dir}"
     ## Apply manifest changes for chrome
     jq -f chrome.jq <manifest.json >"${ch_build_dir}/manifest.json"
-    ## Add browser-polyfill.js
-    download "${PF_URL}" "${ch_build_dir}/browser-polyfill.js"
-    ### Remove source map comment, see
-    ### https://bugs.chromium.org/p/chromium/issues/detail?id=212374
-    sed -i.bak '\://# sourceMappingURL=.*:d' \
-        "${ch_build_dir}/browser-polyfill.js"
-    CH_FILES+=(browser-polyfill.js)
-    sed -e 's/\(\s*\)<!-- \(.*browser-polyfill.js.*\) -->/\1\2/g' \
-        <options/index.html >"${ch_build_dir}/options/index.html"
     if $pkg; then
         echo "Chrome: Building artifacts/${vname}-ch.zip"
         (cd "${ch_build_dir}" && zip "${vname}-ch.zip" "${CH_FILES[@]}")
