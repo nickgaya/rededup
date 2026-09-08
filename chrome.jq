@@ -7,15 +7,9 @@
 | (.host_permissions = [.permissions[] | select(startswith("*://"))])
 | del(.permissions[] | select(startswith("*://")))
 
-# Add background scripts
-| (.background |= {
-  "scripts": [
-    "dct.js",
-    "dwt.js",
-    "phash.js",
-    "background.js"
-  ],
-  "persistent": false
+# Add background script
+| (.background = {
+  "service_worker": "background.js"
 })
 
 # Update content scripts

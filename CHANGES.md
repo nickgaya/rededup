@@ -1,7 +1,11 @@
 # Changelog
 
-## Version 1.6 (unreleased)
+## Version 1.6
+
 - Add Firefox data collection permissions in manifest (no data collection)
+- Fix Chrome manifest and background script
+    - Use ImageBitmap instead of Image to convert fetched image blob
+    - Use OfflineCanvas to extract image data
 
 ## Version 1.5
 

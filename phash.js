@@ -27,33 +27,14 @@ const HashFunction = Object.freeze({
  * @see {@link https://www.chromium.org/Home/chromium-security/extension-content-script-fetches}
  * @see {@link https://developer.chrome.com/extensions/xhr}
  * @param {String} srcUrl An image url
- * @returns {Promise<Image>} An image with data from the source URL.
+ * @returns {Promise<ImageBitmap>} An image with data from the source URL.
  */
 async function fetchImage(srcUrl) {
     const resp = await fetch(srcUrl);
-    const blobUrl = URL.createObjectURL(await resp.blob());
-    try {
-        return await loadImage(blobUrl);
-    } finally {
-        URL.revokeObjectURL(blobUrl);
+    if (!resp.ok) {
+        throw new Error("HTTP error: ${resp.status} ${resp.statusText}|");
     }
-}
-
-/**
- * Create an Image with the given url.
- *
- * @param {String} url An image url
- * @returns {Promise<Image>} A promise object that will be fulfilled with the
- *     image when loading is complete. If the image fails to load, the promise
- *     will be rejected.
- */
-function loadImage(url) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-    });
+    return await createImageBitmap(await resp.blob());
 }
 
 /**
@@ -124,9 +105,7 @@ function* mooreCurve(p) {
  * @return {Uint8ClampedArray} Pixel data of scaled image.
  */
 function getImagePixels(img, width, height) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0, width, height);
@@ -324,13 +303,6 @@ function getWaveletHash(img) {
  * @return {ArrayBuffer} An 8-byte buffer containing the hash value.
  */
 function getImageHash(img, hashFunction) {
-    if (!img.complete) {
-        throw new Error("Image not complete");
-    }
-    if (img.naturalWidth === 0) {
-        throw new Error("Image broken");
-    }
-
     switch (hashFunction) {
         case HashFunction.DIFFERENCE_HASH:
             return getDiffHash(img);
@@ -352,5 +324,10 @@ function getImageHash(img, hashFunction) {
  */
 async function fetchImageAndGetHash(url, hashFunction) {
     const img = await fetchImage(url);
-    return getImageHash(img, hashFunction);
+    try {
+        return getImageHash(img, hashFunction);
+    }
+    finally {
+        img.close();
+    }
 }

@@ -1,5 +1,10 @@
 "use strict";
 
+// When running as a service worker, import necessary scripts
+if (typeof importScripts !== 'undefined') {
+    importScripts('dct.js', 'dwt.js', 'phash.js');
+}
+
 /**
  * Convert an ArrayBuffer to a base64-encoded string.
  *
