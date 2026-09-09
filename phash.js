@@ -32,7 +32,7 @@ const HashFunction = Object.freeze({
 async function fetchImage(srcUrl) {
     const resp = await fetch(srcUrl);
     if (!resp.ok) {
-        throw new Error("HTTP error: ${resp.status} ${resp.statusText}|");
+        throw new Error(`HTTP error: ${resp.status} ${resp.statusText}`);
     }
     return await createImageBitmap(await resp.blob());
 }

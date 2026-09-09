@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.7
+
+- Fix fetch HTTP error logging
+
 ## Version 1.6
 
 - Add Firefox data collection permissions in manifest (no data collection)
